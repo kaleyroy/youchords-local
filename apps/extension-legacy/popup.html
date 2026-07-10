@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="popup.css">
+</head>
+
+<body class="auth-pending">
+  <!-- Clouds Background (Day) -->
+  <div class="clouds-container">
+    <div class="cloud cloud-left1"></div>
+    <div class="cloud cloud-left2"></div>
+    <div class="cloud cloud-left3"></div>
+    <div class="cloud cloud-right1"></div>
+    <div class="cloud cloud-right2"></div>
+    <div class="cloud cloud-right3"></div>
+    <!-- Sun with rays (Sunrise) -->
+    <div class="sun-sunrise">
+      <div class="sun-core"></div>
+      <div class="ray"></div>
+      <div class="ray"></div>
+      <div class="ray"></div>
+      <div class="ray"></div>
+      <div class="ray"></div>
+      <div class="ray"></div>
+    </div>
+  </div>
+
+  <div class="extension-header">
+    <button id="helpBtn" class="help-btn-header">?</button>
+    <h1 class="extension-title"><span class="title-you">You</span><span class="title-chords">Chords</span></h1>
+    <a class="site-link" href="https://you-chords.com" target="_blank" rel="noopener noreferrer">you-chords.com</a>
+  </div>
+
+  <div id="browserSupportWarning" class="browser-support-warning" hidden>
+    <div class="browser-support-warning-title">Browser update recommended</div>
+    <div id="browserSupportWarningText" class="browser-support-warning-text"></div>
+    <button id="browserSupportWarningClose" class="browser-support-warning-close" type="button" aria-label="Dismiss browser warning">×</button>
+  </div>
+
+  <!-- User Profile Section -->
+  <div id="userSection" class="user-section">
+    <!-- Logged Out State -->
+    <div id="loginPrompt" class="login-prompt">
+      <button id="googleSignIn" class="google-btn" aria-disabled="false">
+        <img src="images/icons/google-icon.svg" alt="Google" class="google-icon">
+        Sign in with Google
+      </button>
+      <div id="signInProgressMessage" class="signin-progress-message" role="status" aria-live="polite" hidden>
+        Setting up your account... This may take a few seconds. Please keep this popup open.
+      </div>
+      <p class="consent-notice">By signing in, you agree to our <a href="https://you-chords.com/terms"
+          target="_blank">Terms of Service</a><br>and <a href="https://you-chords.com/privacy" target="_blank">Privacy
+          Policy</a>.</p>
+    </div>
+
+    <!-- Logged In State -->
+    <div id="userProfileBox" class="user-profile-box" style="display: none;">
+      <div class="user-profile-row">
+        <img id="userAvatar" class="user-avatar" src="" alt="Profile">
+        <div class="user-info">
+          <span id="userName" class="user-name"></span>
+          <span id="premiumBadge" class="premium-badge" style="display: none;">Premium</span>
+          <div class="plan-row">
+            <span id="userPlan" class="user-plan">Free</span>
+            <button id="planInfoBtn" class="plan-info-btn" title="View plan features">i</button>
+            <button id="refreshBtn" class="refresh-btn" title="Refresh subscription">
+              <svg class="refresh-icon" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                xmlns="http://www.w3.org/2000/svg">
+                <path
+                  d="M21 10C21 10 18.995 7.26822 17.3662 5.63824C15.7373 4.00827 13.4864 3 11 3C6.02944 3 2 7.02944 2 12C2 16.9706 6.02944 21 11 21C15.1031 21 18.5649 18.2543 19.6482 14.5M21 10V4M21 10H15"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </button>
+          </div>
+          <span id="resetDate" class="reset-date"></span>
+        </div>
+      </div>
+      <button id="upgradeBtn" class="action-btn-full">Upgrade</button>
+      <button id="manageBtn" class="action-btn-full" style="display: none;">Manage Subscription</button>
+      <button id="billingSettingsBtn" class="action-btn-full" style="display: none;">Billing Settings</button>
+
+      <div id="billingSettingsPanel" class="billing-settings-panel" style="display: none;">
+        <div class="billing-settings-header">
+          <div>
+            <div class="billing-settings-title">Billing Settings</div>
+            <div class="billing-settings-subtitle">Manage cancellation and payment details</div>
+          </div>
+          <button id="billingSettingsBackBtn" class="billing-close-btn" type="button" aria-label="Close Billing Settings">×</button>
+        </div>
+        <div id="billingSettingsStatus" class="billing-settings-status"></div>
+        <div class="billing-settings-method">
+          <div class="billing-settings-label">Payment method</div>
+          <div id="billingPaymentMethodText" class="billing-payment-method-text">Loading...</div>
+        </div>
+        <button id="billingUpdatePaymentMethodBtn" class="billing-action-btn" type="button">Update Payment Method</button>
+        <button id="billingChangePlanBtn" class="billing-action-btn" type="button">Change Plan</button>
+        <button id="billingCancelSubscriptionBtn" class="billing-action-btn" type="button">Cancel Subscription</button>
+        <button id="billingRemovePaymentMethodBtn" class="billing-action-btn" type="button">Remove Payment Method</button>
+        <button id="billingDeleteAccountBtn" class="billing-action-btn danger" type="button">Delete Account</button>
+      </div>
+
+      <button id="signOutBtn" class="sign-out-btn-inside">Sign Out</button>
+
+      <!-- Usage Section (inside profile box) -->
+      <div id="usageSection" class="usage-section" style="display: none;">
+        <div class="usage-bar-container">
+          <div class="usage-bar" id="usageBar" style="width: 0%"></div>
+        </div>
+        <span class="usage-text" id="usageText">0/7 chords this month</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- API Key Section (separate from user profile) -->
+  <div id="apiKeySection" class="api-key-section">
+    <div class="api-section-inner">
+      <div class="api-header">
+        <div class="api-title">
+          <span class="api-icon">🔑</span>
+          <span>Gemini API</span>
+        </div>
+        <div class="api-header-right">
+          <div class="api-status not-set" id="apiStatus">
+            <span class="api-status-dot"></span>
+            <span>Not Set</span>
+          </div>
+          <button
+            type="button"
+            class="api-section-toggle-btn"
+            id="apiSectionToggleBtn"
+            aria-label="Minimize Gemini API section"
+            aria-expanded="true"
+            title="Minimize Gemini API section"
+          >
+            <span id="apiSectionToggleArrow">▾</span>
+          </button>
+        </div>
+      </div>
+      <div id="apiCollapsedPromptSummary" class="api-collapsed-prompt-summary" hidden></div>
+
+      <div id="apiSectionContent" class="api-section-content">
+        <div class="api-description">
+          Add your Gemini API key for unlimited transcriptions
+        </div>
+
+      <div class="api-key-label">
+        <span>DEFAULT</span>
+      </div>
+
+      <div class="api-input-group">
+        <input type="password" class="api-input" id="apiKeyInput" placeholder="AIzaSy..." maxlength="100">
+        <button class="toggle-visibility" id="toggleApiKeyBtn" title="Show/Hide">
+          <svg class="eye-icon" viewBox="0 0 24 24">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+          </svg>
+          <svg class="eye-off-icon" viewBox="0 0 24 24" style="display: none;">
+            <path
+              d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24">
+            </path>
+            <line x1="1" y1="1" x2="23" y2="23"></line>
+          </svg>
+        </button>
+      </div>
+
+      <div class="api-actions">
+        <button class="api-button save" id="saveApiKeyBtn" disabled>Save</button>
+        <button class="api-button clear" id="clearApiKeyBtn">Clear</button>
+      </div>
+
+      <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" class="api-link">
+        <span>🚀</span>
+        <span>Get free API key</span>
+      </a>
+
+      <div class="api-help-links">
+        <div class="api-help-title">dont know how to get API key?</div>
+        <div class="api-help-actions">
+          <button type="button" class="api-help-link-btn" id="watchApiTutorialBtn">Watch tutorial ↗</button>
+        </div>
+      </div>
+
+      <div class="api-disclaimer">
+        Google provides a free tier. You must verify your free-tier eligibility in your own Google account.
+        If free tier is unavailable or exceeded, charges may apply by Google. YouChords is not responsible for these charges.
+        <a
+          href="https://ai.google.dev/gemini-api/docs/billing/"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="api-disclaimer-link"
+        >
+          Google terms apply
+        </a>
+        ·
+        <a
+          href="https://ai.google.dev/pricing"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="api-disclaimer-link"
+        >
+          Pricing
+        </a>
+      </div>
+
+      <!-- Multi API Key Status -->
+      <div class="api-multi-status" id="apiMultiStatus" style="display: none;">
+        <span id="multiKeyCount">2 Keys Active</span>
+      </div>
+
+      <button class="api-manage-btn" id="apiManageBtn">
+        <span>⚙️</span>
+        <span>Manage API Keys</span>
+      </button>
+
+      <!-- API Concurrency Setting -->
+      <div class="api-concurrency-section">
+        <div class="concurrency-header">
+          <span class="concurrency-title">API Performance</span>
+        </div>
+        <div class="concurrency-description">
+          How many requests to send at once?
+        </div>
+        <button class="concurrency-dropdown-btn" id="concurrencyDropdownBtn">
+          <span class="concurrency-current-icon">⚡</span>
+          <span class="concurrency-current-text">Balanced (2 requests)</span>
+          <span class="concurrency-arrow">▼</span>
+        </button>
+        <div class="concurrency-dropdown-menu" id="concurrencyDropdownMenu" style="display: none;">
+          <div class="concurrency-option" data-value="conservative">
+            <span class="concurrency-option-icon">🐢</span>
+            <div class="concurrency-option-content">
+              <div class="concurrency-option-title">Conservative</div>
+              <div class="concurrency-option-desc">1 request at a time - Slow but safe</div>
+            </div>
+          </div>
+          <div class="concurrency-option" data-value="balanced">
+            <span class="concurrency-option-icon">⚡</span>
+            <div class="concurrency-option-content">
+              <div class="concurrency-option-title">
+                Balanced
+                <span class="concurrency-badge">Recommended</span>
+              </div>
+              <div class="concurrency-option-desc">2 requests at once - Good balance</div>
+            </div>
+          </div>
+          <div class="concurrency-option" data-value="aggressive">
+            <span class="concurrency-option-icon">🚀</span>
+            <div class="concurrency-option-content">
+              <div class="concurrency-option-title">Aggressive</div>
+              <div class="concurrency-option-desc">3 requests at once - Fast but risky</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      </div>
+    </div>
+
+    <!-- Custom Prompts Section -->
+    <div class="prompts-section-inner">
+      <div class="prompts-header">
+        <span class="prompts-title">Custom Prompts</span>
+        <button class="add-prompt-btn" id="addPromptBtn" title="Add new prompt">+</button>
+      </div>
+
+      <div class="global-model-row">
+        <label for="globalGeminiModelSelect" class="global-model-label">Global Model:</label>
+        <select id="globalGeminiModelSelect" class="global-model-select"></select>
+        <div class="global-model-hint">Models marked FREE/NOT FREE depend on your Google account eligibility and quota. Charges may apply by Google.</div>
+      </div>
+
+      <div class="paid-models-row">
+        <label class="paid-models-label" for="allowPaidGeminiModelsCheckbox">
+          <input type="checkbox" id="allowPaidGeminiModelsCheckbox" class="paid-models-checkbox">
+          <span class="paid-models-text">
+            <span class="paid-models-title">Allow paid Gemini models</span>
+            <span class="paid-models-desc">Keep this off unless you intentionally want to use billable Google Gemini models.</span>
+          </span>
+        </label>
+      </div>
+
+      <div class="prompt-disclaimer-row">
+        <label class="prompt-disclaimer-label" for="promptDisclaimerCheckbox">
+          <input type="checkbox" id="promptDisclaimerCheckbox" class="prompt-disclaimer-checkbox">
+          <span class="prompt-disclaimer-text">I understand prompt usage is my responsibility.</span>
+        </label>
+      </div>
+
+      <div class="prompts-collapse-controls">
+        <button class="prompts-collapse-btn" id="expandAllPromptsBtn" type="button">Expand All</button>
+        <button class="prompts-collapse-btn" id="minimizeAllPromptsBtn" type="button">Minimize All</button>
+      </div>
+
+      <!-- Prompts List -->
+      <div class="prompts-list" id="promptsList">
+        <!-- Prompts will be populated by JS -->
+      </div>
+
+      <!-- Add/Edit Prompt Form (hidden by default) -->
+      <div class="prompt-form" id="promptForm" style="display: none;">
+        <div class="form-header">
+          <span id="formTitle">New Prompt</span>
+          <button class="form-close-btn" id="formCloseBtn">×</button>
+        </div>
+        <input type="text" class="prompt-title-input" id="promptTitleInput" placeholder="Prompt title..."
+          maxlength="50">
+        <textarea class="prompt-text-input" id="promptTextInput" placeholder="Enter your prompt here..."
+          rows="4"></textarea>
+
+        <!-- Transcript-Based Prompt Toggle -->
+        <div class="prompt-option">
+          <label class="prompt-checkbox-label">
+            <input type="checkbox" id="promptTranscriptBasedCheckbox" class="prompt-checkbox">
+            <span class="prompt-checkbox-text">
+              <span class="prompt-checkbox-title">Based on Video Transcribe</span>
+              <span class="prompt-checkbox-desc">(answers based on audio transcript only)</span>
+            </span>
+          </label>
+        </div>
+        
+        <!-- Video Analysis Toggle -->
+        <div class="prompt-option">
+          <label class="prompt-checkbox-label">
+            <input type="checkbox" id="promptVideoAnalysisCheckbox" class="prompt-checkbox">
+            <span class="prompt-checkbox-text">
+              <span class="prompt-checkbox-title">🎥 Analyze video content</span>
+              <span class="prompt-checkbox-desc">(analyzes visual content, uses more tokens)</span>
+            </span>
+          </label>
+        </div>
+        
+        <!-- Video Resolution Selector (shown only when video analysis is ON) -->
+        <div class="video-resolution-group" id="videoResolutionGroup" style="display: none;">
+          <label for="videoResolution" class="video-resolution-label">
+            <span class="resolution-icon">🎥</span>
+            Video Resolution:
+          </label>
+          <select id="videoResolution" class="video-resolution-select">
+            <option value="medium">Medium (Default)</option>
+            <option value="high">High (More tokens)</option>
+          </select>
+          <div class="resolution-hint">
+            Higher resolution = better video analysis but costs more tokens
+          </div>
+        </div>
+        
+        <!-- Google Search Toggle -->
+        <div class="prompt-option">
+          <label class="prompt-checkbox-label">
+            <input type="checkbox" id="promptGoogleSearchCheckbox" class="prompt-checkbox">
+            <span class="prompt-checkbox-text">
+              <span class="prompt-checkbox-title">🔎 Google Search</span>
+              <span class="prompt-checkbox-desc">(AI searches web for current info)</span>
+              <span class="prompt-checkbox-example">💡 Example: "Search for recent news about topics in this video"</span>
+            </span>
+          </label>
+        </div>
+        
+        <!-- URL Context Toggle -->
+        <div class="prompt-option">
+          <label class="prompt-checkbox-label">
+            <input type="checkbox" id="promptUrlContextCheckbox" class="prompt-checkbox">
+            <span class="prompt-checkbox-text">
+              <span class="prompt-checkbox-title">📖 Deep Page Reading</span>
+              <span class="prompt-checkbox-desc">(AI reads full web pages you provide)</span>
+              <span class="prompt-checkbox-example">💡 Example: "Read the artist's Wikipedia page and summarize"</span>
+            </span>
+          </label>
+        </div>
+        
+        <!-- Thinking Level Selector -->
+        <div class="thinking-level-group" id="thinkingLevelGroup">
+          <label for="thinkingLevel" class="thinking-level-label">
+            <span class="thinking-icon">🧠</span>
+            Thinking Level:
+          </label>
+          <select id="thinkingLevel" class="thinking-level-select">
+            <option value="MINIMAL">MINIMAL (Fastest)</option>
+            <option value="LOW">LOW (Fast)</option>
+            <option value="MEDIUM" selected>MEDIUM (Balanced)</option>
+            <option value="HIGH">HIGH (Deep thinking)</option>
+          </select>
+          <div class="thinking-hint">
+            Higher level = better quality but slower processing
+          </div>
+        </div>
+
+        <div class="prompt-model-group" id="promptModelGroup">
+          <label for="promptModelSelect" class="prompt-model-label">
+            <span class="prompt-model-icon">🤖</span>
+            Gemini Model:
+          </label>
+          <select id="promptModelSelect" class="prompt-model-select"></select>
+          <div class="prompt-model-hint">
+            Use Global follows the Global Model above. FREE/NOT FREE depends on your Google account eligibility and quota.
+          </div>
+        </div>
+        
+        <div class="form-actions">
+          <button class="form-btn cancel" id="formCancelBtn">Cancel</button>
+          <button class="form-btn save" id="formSaveBtn">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Help Panel (hidden by default) -->
+  <div id="helpPanel" class="help-panel" style="display: none;">
+    <div class="help-header">
+      <span class="help-title">Help & FAQ</span>
+      <button id="helpCloseBtn" class="help-close-btn">×</button>
+    </div>
+
+    <section id="troubleshootingCard" class="troubleshooting-card collapsed" aria-label="Troubleshooting diagnostics">
+      <button id="troubleshootingToggleBtn" class="troubleshooting-header" type="button" aria-expanded="false" aria-controls="troubleshootingBody">
+        <div>
+          <div class="troubleshooting-title">Troubleshooting</div>
+          <div class="troubleshooting-subtitle">Diagnose common issues before opening support.</div>
+        </div>
+        <span id="troubleshootingToggleIcon" class="troubleshooting-toggle-icon">▾</span>
+      </button>
+
+      <div id="troubleshootingBody" class="troubleshooting-body" hidden>
+        <div class="troubleshooting-instructions">
+          Start diagnostics, perform the action that is not working, then click Finished. If you change your mind, click Abort diagnostics.
+        </div>
+
+        <div class="troubleshooting-actions">
+          <button id="diagnosticsStartBtn" class="troubleshooting-btn primary" type="button">▶ Start diagnostics</button>
+          <button id="diagnosticsAnalyzeBtn" class="troubleshooting-btn" type="button">Finished</button>
+        </div>
+
+        <div id="diagnosticsStatus" class="diagnostics-status" aria-live="polite"></div>
+        <div id="diagnosticsResults" class="diagnostics-results" hidden></div>
+
+        <div class="diagnostics-report-actions">
+          <button id="diagnosticsCopyBtn" class="troubleshooting-btn compact" type="button" disabled>Copy report</button>
+          <button id="diagnosticsClearBtn" class="troubleshooting-btn compact ghost" type="button">Clear</button>
+        </div>
+
+        <div class="troubleshooting-support-note">
+          If you cannot solve it yourself, please <a href="#" id="diagnosticsSupportTicketLink" class="troubleshooting-support-link">open a ticket from your account profile</a> or email support. A ticket is the best option. If you email us, include the account email you used to sign up so we can identify your user.
+        </div>
+      </div>
+    </section>
+
+    <div class="faq-list">
+      <div class="faq-item" data-faq="chords">
+        <div class="faq-question">Why aren't chords showing?</div>
+        <div class="faq-answer">Make sure you're watching a music video. Chords only work on songs, not podcasts or
+          vlogs.</div>
+      </div>
+
+      <div class="faq-item" data-faq="upgrade">
+        <div class="faq-question">How do I upgrade my plan?</div>
+        <div class="faq-answer">Click the "<a href="#" id="faqUpgradeLink" class="faq-link">Upgrade</a>" button in the
+          popup to see available plans and pricing.</div>
+      </div>
+
+      <div class="faq-item" data-faq="cancel">
+        <div class="faq-question">How do I cancel my subscription?</div>
+        <div class="faq-answer">In the popup, open "Billing Settings" → "Cancel subscription". You can also click
+          "Manage Subscription" to use the customer portal, or visit you-chords.com/account and cancel from the billing
+          section. You'll keep Pro access until the end of the current billing period.</div>
+      </div>
+
+      <div class="faq-item" data-faq="remove-payment">
+        <div class="faq-question">Can I remove my payment method or credit card?</div>
+        <div class="faq-answer">Yes. In the popup, open "Billing Settings" → "Remove Payment Method". You can also visit
+          you-chords.com/account and use "Remove Payment Method" there. Removing the payment method also cancels your
+          subscription renewal, but you keep Pro access until the end of the current billing period.</div>
+      </div>
+
+      <div class="faq-item" data-faq="delete">
+        <div class="faq-question">How do I delete my account?</div>
+        <div class="faq-answer">Click "Manage Subscription" in the popup, or visit you-chords.com/account → "Delete
+          Account" at the bottom. <span class="warning-text">⚠️ Warning: Deleting your account is different from
+            canceling your subscription. Account deletion immediately removes your access to YouChords, including the
+            ability to create chords or process new songs, and permanently deletes your data, usage history, and
+            subscription. Your account cannot be recovered. If you want to use YouChords again later, you will need to
+            create a new account and start a new paid subscription at the full current price.</span></div>
+      </div>
+    </div>
+
+    <a href="https://you-chords.com/faq" target="_blank" class="more-questions-link">More questions? Visit our FAQ →</a>
+    <div class="help-support-contact">
+      <div class="help-support-line">NEED SUPPORT?</div>
+      <a href="#" id="helpSupportTicketLink" class="help-support-ticket-link">OPEN A TICKET FROM YOUR ACCOUNT (FASTEST)</a>
+      <div class="help-support-line">OR</div>
+      <div class="help-support-line">REACH US AT</div>
+      <a href="mailto:support@you-chords.com" class="help-support-email">SUPPORT@YOU-CHORDS.COM</a>
+      <div class="help-support-line">IF YOU EMAIL US, INCLUDE YOUR ACCOUNT EMAIL.</div>
+    </div>
+
+    <div id="extensionVersion" class="extension-version" title="YouChords extension version">v</div>
+  </div>
+
+  <!-- Plan Info Tooltip (outside profile box for proper z-index) -->
+  <div id="planInfoTooltip" class="plan-info-tooltip" style="display: none;">
+    <div class="tooltip-header">
+      <span id="tooltipPlanTitle">Your Plan: Free</span>
+    </div>
+    <ul id="tooltipFeaturesList" class="tooltip-features-list">
+      <!-- Features populated by JS -->
+  </div>
+
+  <!-- API Management Panel (hidden by default) -->
+  <div id="apiManagementPanel" class="api-management-panel" style="display: none;">
+    <div class="api-management-header">
+      <span class="api-management-title">API Management</span>
+      <button id="apiManagementCloseBtn" class="api-management-close-btn">×</button>
+    </div>
+
+    <div class="api-keys-list" id="apiKeysList">
+      <!-- API keys will be populated by JS -->
+    </div>
+
+    <!-- Add New Key Form (hidden by default) -->
+    <div class="add-key-form" id="addKeyForm" style="display: none;">
+      <div class="form-header">
+        <span id="addKeyFormTitle">Add New Key</span>
+        <button class="form-close-btn" id="addKeyFormCloseBtn">×</button>
+      </div>
+      <input type="text" class="key-name-input" id="keyNameInput" placeholder="Key name (e.g. Personal, Work)"
+        maxlength="30">
+      <div class="key-value-wrapper">
+        <input type="password" class="key-value-input" id="keyValueInput" placeholder="AIzaSy..." maxlength="100">
+        <button class="key-toggle-visibility" id="toggleKeyValueBtn" type="button" title="Show/Hide">
+          <svg class="eye-icon" viewBox="0 0 24 24" width="16" height="16">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+          </svg>
+          <svg class="eye-off-icon" viewBox="0 0 24 24" width="16" height="16" style="display: none;">
+            <path
+              d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24">
+            </path>
+            <line x1="1" y1="1" x2="23" y2="23"></line>
+          </svg>
+        </button>
+      </div>
+      <div class="form-actions">
+        <button class="form-btn cancel" id="addKeyCancelBtn">Cancel</button>
+        <button class="form-btn save" id="addKeySaveBtn">Save</button>
+      </div>
+    </div>
+
+    <button class="add-api-key-btn" id="addApiKeyBtn">
+      <span>➕</span>
+      <span>Add New Key</span>
+    </button>
+  </div>
+
+  <script src="popup.js" type="module"></script>
+</body>
+
+</html>

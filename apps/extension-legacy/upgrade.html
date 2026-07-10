@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YouChords - Upgrade Your Plan</title>
+  <link rel="stylesheet" href="upgrade.css">
+</head>
+<body>
+  <div class="upgrade-container">
+    <header class="upgrade-header">
+      <h1><span class="title-you">You</span><span class="title-chords">Chords</span></h1>
+      <p class="subtitle">Choose the plan that's right for you</p>
+    </header>
+
+    <!-- Manage Subscription Section (hidden by default, shown for paid users) -->
+    <div id="manage-subscription" class="manage-section" style="display: none;">
+      <p>Already subscribed?</p>
+      <button id="manage-btn" class="manage-btn">Manage Subscription</button>
+    </div>
+
+    <div class="plans-container">
+      <div class="plan-card" data-plan="basic">
+        <div class="plan-header">
+          <h2>Basic</h2>
+          <div class="price">
+            <span class="amount">$1.50</span>
+            <span class="period">/month</span>
+          </div>
+        </div>
+        <ul class="features">
+          <li class="included">✓ 100 chords/month</li>
+          <li class="included">✓ Videos up to 35 minutes</li>
+          <li class="included">✓ All chord modes (R/R+/H/H+)</li>
+          <li class="included">✓ Capo, transpose, tuner</li>
+          <li class="included">✓ Chord carousel and library</li>
+          <li class="included">✓ Fair usage applies</li>
+        </ul>
+        <button class="plan-btn" data-plan="basic">Subscribe Now</button>
+      </div>
+
+      <div class="plan-card popular" data-plan="starter">
+        <div class="popular-badge">Most Popular</div>
+        <div class="plan-header">
+          <h2>Starter</h2>
+          <div class="price">
+            <span class="amount">$3</span>
+            <span class="period">/month</span>
+          </div>
+        </div>
+        <ul class="features">
+          <li class="included">✓ 300 chords/month</li>
+          <li class="included">✓ Videos up to 35 minutes</li>
+          <li class="included">✓ All chord modes (R/R+/H/H+)</li>
+          <li class="included">✓ Capo, transpose, tuner</li>
+          <li class="included">✓ Chord carousel and library</li>
+          <li class="included">✓ Fair usage applies</li>
+        </ul>
+        <button class="plan-btn popular-btn" data-plan="starter">Subscribe Now</button>
+      </div>
+
+      <div class="plan-card" data-plan="pro">
+        <div class="plan-header">
+          <h2>Pro</h2>
+          <div class="price">
+            <span class="amount">$6</span>
+            <span class="period">/month</span>
+          </div>
+        </div>
+        <ul class="features">
+          <li class="included">✓ 1,000 chords/month</li>
+          <li class="included">✓ Videos up to 35 minutes</li>
+          <li class="included">✓ All chord modes (R/R+/H/H+)</li>
+          <li class="included">✓ Capo, transpose, tuner</li>
+          <li class="included">✓ Chord carousel and library</li>
+          <li class="included">✓ Speed & pitch tools</li>
+        </ul>
+        <button class="plan-btn" data-plan="pro">Subscribe Now</button>
+      </div>
+    </div>
+
+    <div class="free-info">
+      <p>🎵 Free users get <strong>7 one-time chords</strong> with all features included (no monthly reset)</p>
+    </div>
+
+    <footer class="upgrade-footer">
+      <p>Questions? Contact us at <a href="mailto:support@you-chords.com">support@you-chords.com</a></p>
+    </footer>
+  </div>
+
+  <script src="utils/productionConsole.js"></script>
+  <script src="upgrade.js"></script>
+</body>
+</html>

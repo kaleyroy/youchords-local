@@ -1,0 +1,13 @@
+title = "YouChords Local secret scanning configuration"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Known Chrome local-storage identifiers, not credentials"
+regexTarget = "secret"
+regexes = [
+  '''yc_troubleshooting_expanded_v1''',
+  '''youchords_key_transpose_offsets_v1'''
+]
+
