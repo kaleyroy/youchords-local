@@ -17,10 +17,17 @@ RUN make \
 FROM python:3.10-slim AS python-builder
 WORKDIR /build
 COPY requirements.txt .
+ARG MADMOM_URL=https://files.pythonhosted.org/packages/c7/a3/9f3de3e8068a3606331134d96b84c8db4f7624d6715be8ab3c1f56e6731d/madmom-0.16.1.tar.gz
+ARG MADMOM_SHA256=64a86a29106e7c4e0c5f4ec96801c2d1a8492db710e4fe27e097da5517d68cb2
 RUN apt-get update && apt-get install -y --no-install-recommends build-essential \
+    curl \
     && python -m venv /opt/venv \
-    && /opt/venv/bin/pip install --no-cache-dir --upgrade pip setuptools wheel \
-    && /opt/venv/bin/pip install --no-cache-dir numpy==1.26.4 \
+    && /opt/venv/bin/pip install --no-cache-dir --upgrade pip "setuptools<81" wheel==0.46.2 jaraco.context==6.1.0 \
+    && /opt/venv/bin/pip install --no-cache-dir numpy==1.26.4 "Cython<3" scipy==1.15.3 mido==1.3.3 \
+    && curl --fail --location --retry 4 --retry-delay 2 "$MADMOM_URL" -o /tmp/madmom.tar.gz \
+    && echo "$MADMOM_SHA256  /tmp/madmom.tar.gz" | sha256sum --check - \
+    && /opt/venv/bin/pip install --no-cache-dir --no-build-isolation /tmp/madmom.tar.gz \
+    && rm /tmp/madmom.tar.gz \
     && /opt/venv/bin/pip install --no-cache-dir --no-build-isolation -r requirements.txt \
     && rm -rf /var/lib/apt/lists/*
 
@@ -36,6 +43,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libsndfile1 \
     libvamp-sdk2v5 \
     nodejs \
+    && python -m pip uninstall -y setuptools wheel \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=python-builder /opt/venv /opt/venv
@@ -67,7 +75,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PATH=/opt/venv/bin:$PATH \
     VAMP_PATH=/app/engine/vamp_plugins \
     YOUCHORDS_DATA_DIR=/data \
-    YOUCHORDS_REGULAR_ENGINE=chordino
+    YOUCHORDS_REGULAR_ENGINE=madmom
 
 EXPOSE 8765
 CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8765", "--workers", "1"]

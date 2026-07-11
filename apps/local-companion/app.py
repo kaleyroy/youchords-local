@@ -17,7 +17,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from engine.convert_to_wav import convert_to_wav
-from engine.main import get_last_process_timings, process_wav_file
+from engine.main import (
+    REGULAR_ENGINE,
+    get_last_process_timings,
+    process_wav_file,
+    warm_madmom_regular_processor,
+)
 
 
 APP_ROOT = Path(__file__).resolve().parent
@@ -77,7 +82,7 @@ class JobRecord:
         return payload
 
 
-app = FastAPI(title="YouChords Local Companion", version="0.1.0")
+app = FastAPI(title="YouChords Local Companion", version="0.2.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origin_regex=r"^(chrome-extension://[a-z]{32}|https://([a-z0-9-]+\.)?youtube\.com)$",
@@ -231,6 +236,8 @@ def prune_jobs() -> None:
 @app.on_event("startup")
 def startup_cleanup() -> None:
     cleanup_engine_temp()
+    if REGULAR_ENGINE == "madmom" and not warm_madmom_regular_processor():
+        raise RuntimeError("Madmom is configured but its DeepChroma models could not be loaded")
 
 
 @app.on_event("shutdown")
@@ -240,7 +247,12 @@ def shutdown_worker() -> None:
 
 @app.get("/v1/health", dependencies=[Depends(require_pairing_token)])
 def health() -> dict:
-    return {"ok": True, "service": "youchords-local", "version": "0.1.0"}
+    return {
+        "ok": True,
+        "service": "youchords-local",
+        "version": "0.2.0",
+        "regularEngine": REGULAR_ENGINE,
+    }
 
 
 @app.post("/v1/jobs", dependencies=[Depends(require_pairing_token)])

@@ -103,18 +103,19 @@ Keep:
 
 ## Chord Pipeline
 
-The current local-compatible pipeline already produces the extension's packed
-version 2 schema:
+The local pipeline produces the extension's packed version 2 schema:
 
+- Madmom DeepChroma output for Regular mode
 - Chordino simple-chord output
 - Chordino chord-note output
 - Harmonic+ parameter pass
 - tuning value and non-standard-tuning flag
 - `regular`, `regularPlus`, `harmonic`, and `harmonicPlus` timelines
 
-For the first public release, use the Chordino path for all four modes. Do not
-bundle madmom model files until their non-commercial model/data license has been
-reviewed and the project can describe that component separately and accurately.
+The Docker build downloads Madmom 0.16.1 from PyPI and verifies its SHA-256.
+Madmom source is BSD licensed, while its pretrained model/data files are
+CC BY-NC-SA 4.0 and therefore limited to non-commercial use. The repository does
+not commit or distribute those model files or a prebuilt Madmom image.
 
 ## Subtitles
 
@@ -210,4 +211,3 @@ The first public tag is blocked until all of these pass:
 7. Test end to end with local files, then permitted YouTube URLs.
 8. Add local subtitles and optional speech-to-text.
 9. Publish an alpha release and link it from the shutdown page.
-

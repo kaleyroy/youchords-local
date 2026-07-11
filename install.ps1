@@ -74,7 +74,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Docker could not start the YouChords Local com
 
 $headers = @{ Authorization = "Bearer $pairingToken" }
 $healthy = $false
-for ($attempt = 0; $attempt -lt 30; $attempt++) {
+for ($attempt = 0; $attempt -lt 60; $attempt++) {
     try {
         $health = Invoke-RestMethod -Uri 'http://127.0.0.1:8765/v1/health' -Headers $headers -TimeoutSec 2
         if ($health.ok) { $healthy = $true; break }

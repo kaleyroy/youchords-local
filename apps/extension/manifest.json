@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "YouChords Local",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Generate chord timelines locally for YouTube videos with no account or subscription.",
   "minimum_chrome_version": "127",
   "permissions": [

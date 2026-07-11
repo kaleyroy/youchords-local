@@ -26,6 +26,22 @@ The local companion builds NNLS Chroma 1.1 and Chordino from source under
 - The upstream `COPYING`, `README`, and `CITATION` files are retained beside
   the source.
 
+## Madmom
+
+The local Docker build downloads and builds Madmom 0.16.1 from its official
+PyPI source distribution. The archive SHA-256 is verified before installation.
+YouChords uses Madmom DeepChroma for the primary Regular chord mode.
+
+- Project: <https://github.com/CPJKU/madmom>
+- Source code license: BSD 3-Clause
+- Pretrained model/data license: CC BY-NC-SA 4.0
+- Model restriction: non-commercial use only
+- PyPI source SHA-256:
+  `64a86a29106e7c4e0c5f4ec96801c2d1a8492db710e4fe27e097da5517d68cb2`
+
+The model files are fetched only while the user builds the image. They are not
+committed to this repository and no prebuilt Madmom image is distributed here.
+
 ## Sonic Annotator
 
 Docker downloads Sonic Annotator 1.7 from its official GitHub release and

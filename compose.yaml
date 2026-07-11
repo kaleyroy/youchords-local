@@ -4,6 +4,7 @@ services:
       context: ./apps/local-companion
     environment:
       YOUCHORDS_PAIRING_TOKEN: ${YOUCHORDS_PAIRING_TOKEN:?Run install.ps1 to create the pairing token}
+      YOUCHORDS_REGULAR_ENGINE: madmom
     ports:
       - "127.0.0.1:8765:8765"
     restart: unless-stopped

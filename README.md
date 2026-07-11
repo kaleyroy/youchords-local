@@ -3,9 +3,14 @@
 YouChords is becoming a free, open-source, local-first chord recognition tool
 for YouTube videos and local audio files.
 
-> **Project status: early alpha.** The local Chordino companion now builds and
-> processes audio in Docker. The Chrome extension adapter is available for
+> **Project status: early alpha.** The local Madmom + Chordino companion builds
+> and processes audio in Docker. The Chrome extension adapter is available for
 > testing, but the project still needs broader browser and media coverage.
+
+> **Madmom model license:** the Docker build downloads Madmom's pretrained
+> model/data files under CC BY-NC-SA 4.0. They are for non-commercial use. The
+> YouChords source remains GPL-2.0-or-later, and no prebuilt Madmom image or
+> model files are stored in this repository.
 
 ## The goal
 
@@ -13,7 +18,8 @@ The finished community edition will run chord analysis on the user's computer:
 
 1. accept a local audio file or a permitted media URL;
 2. prepare audio locally with FFmpeg and yt-dlp where appropriate;
-3. run Chordino / NNLS Chroma locally;
+3. run Madmom DeepChroma for Regular mode and Chordino / NNLS Chroma for the
+   remaining modes;
 4. return YouChords chord timelines to the browser extension;
 5. cache results locally and remove temporary media safely.
 
@@ -36,8 +42,8 @@ YouChords backend will be required.
 
 - `apps/extension/` - the account-free Chrome extension connected only to the
   local companion.
-- `apps/local-companion/` - the FastAPI, yt-dlp, FFmpeg, Sonic Annotator, and
-  Chordino processing service.
+- `apps/local-companion/` - the FastAPI, yt-dlp, FFmpeg, Madmom, Sonic
+  Annotator, and Chordino processing service.
 - `apps/extension-legacy/` - sanitized source snapshot of the former Chrome
   extension, retained as the UI and behavior reference for the local edition.
 - `docs/LOCAL_FIRST_ROADMAP.md` - architecture, security, licensing, and release

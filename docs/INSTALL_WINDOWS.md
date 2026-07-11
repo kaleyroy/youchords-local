@@ -4,6 +4,10 @@
 
 Install and start [Docker Desktop](https://www.docker.com/products/docker-desktop/).
 
+The Docker build downloads Madmom's pretrained model/data files under
+CC BY-NC-SA 4.0. Those files are restricted to non-commercial use; see
+[`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md).
+
 ## One setup command
 
 Open PowerShell and run:
