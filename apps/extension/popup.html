@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>YouChords Local</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <main>
+    <header>
+      <img src="images/icons/icon-48.png" alt="">
+      <div>
+        <h1>YouChords Local</h1>
+        <p>Chord recognition on your computer</p>
+      </div>
+    </header>
+
+    <section class="status" aria-live="polite">
+      <span id="status-dot" class="dot checking"></span>
+      <div>
+        <strong id="status-title">Checking local companion...</strong>
+        <p id="status-detail">Docker must be running.</p>
+      </div>
+    </section>
+
+    <button id="open-youtube" class="primary" type="button">Open YouTube</button>
+    <div class="links">
+      <a href="https://github.com/yuval-kahan/youchords-local" target="_blank" rel="noreferrer">GitHub</a>
+      <button id="retry" type="button">Check again</button>
+    </div>
+  </main>
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

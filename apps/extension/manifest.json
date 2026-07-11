@@ -1,0 +1,67 @@
+{
+  "manifest_version": 3,
+  "name": "YouChords Local",
+  "version": "0.1.0",
+  "description": "Generate chord timelines locally for YouTube videos with no account or subscription.",
+  "minimum_chrome_version": "127",
+  "permissions": [
+    "activeTab",
+    "storage"
+  ],
+  "host_permissions": [
+    "*://*.youtube.com/*",
+    "https://generativelanguage.googleapis.com/*",
+    "http://127.0.0.1:8765/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "images/icons/action-icon-16.png",
+      "32": "images/icons/action-icon-32.png",
+      "48": "images/icons/action-icon-48.png",
+      "128": "images/icons/action-icon-128.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.youtube.com/*"],
+      "js": [
+        "utils/productionConsole.js",
+        "utils/yc-utils.js",
+        "utils/dynamicLoader.js",
+        "content.js"
+      ],
+      "css": ["styles.css"]
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "config/*.js",
+        "local/auth.js",
+        "utils/*.js",
+        "buttons/*.js",
+        "buttons/*.css",
+        "buttons/settings/**/*.js",
+        "css/*.css",
+        "data/*.js",
+        "data/*.json",
+        "data/*.json.gz",
+        "data/instruments/*.json",
+        "images/*",
+        "images/**/*",
+        "fonts/**/*.woff2"
+      ],
+      "matches": ["*://*.youtube.com/*"]
+    }
+  ],
+  "icons": {
+    "16": "images/icons/icon-16.png",
+    "32": "images/icons/icon-32.png",
+    "48": "images/icons/icon-48.png",
+    "128": "images/icons/icon-128.png"
+  },
+  "background": {
+    "service_worker": "background.js"
+  }
+}

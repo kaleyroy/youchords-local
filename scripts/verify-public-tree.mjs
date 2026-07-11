@@ -45,7 +45,10 @@ for (const file of files) {
     continue;
   }
 
-  if (!['.js', '.mjs', '.json', '.html', '.css', '.md', '.txt'].includes(extension)) continue;
+  if (![
+    '.js', '.mjs', '.json', '.html', '.css', '.md', '.txt',
+    '.py', '.ps1', '.yaml', '.yml', '.toml'
+  ].includes(extension)) continue;
   const content = fs.readFileSync(file, 'utf8');
 
   if (extension === '.json') {

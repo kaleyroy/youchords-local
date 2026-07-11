@@ -15,6 +15,7 @@ tmp/
 .tmp/
 cache/
 cookies.txt
+apps/extension/config/local-config.js
 *.pem
 *.key
 *.p12
@@ -22,4 +23,3 @@ cookies.txt
 *.sqlite3
 .DS_Store
 Thumbs.db
-

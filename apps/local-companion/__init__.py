@@ -1,0 +1,1 @@
+"""YouChords local companion."""
