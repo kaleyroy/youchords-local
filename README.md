@@ -1,3 +1,5 @@
+## Make sure that in requirements.local.txt, yt-dlp is the latest version. As of August 21, 2026, it should be: yt-dlp[default]>=2026.8.19 ##
+
 # YouChords Local
 
 YouChords is becoming a free, open-source, local-first chord recognition tool
