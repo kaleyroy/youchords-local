@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 /**
  * Video Validator Module - YouChords (2025-05-full)
  * ------------------------------------------------
@@ -524,14 +526,13 @@ async function isMusicVideo(videoId) {
 
       try {
         console.log(`[isMusicVideo] 🎵 WEB_REMIX attempt ${attempt}/${maxRetries}...`);
-        const musicResponse = await fetch(endpoints.musicPlayer, {
-          method: 'POST',
-          headers: headers,
-          body: JSON.stringify(musicPayload)
-        });
+        // music.youtube.com is cross-origin from a www.youtube.com page; since
+        // Chrome 85 content-script fetches follow the page's CORS rules, so this
+        // probe must go through the background service worker (host_permissions).
+        const musicResponse = await window.ycLoader.postJson(endpoints.musicPlayer, musicPayload);
 
         if (musicResponse.ok) {
-          const musicData = await musicResponse.json();
+          const musicData = musicResponse.json || {};
 
           // 🐛 DEBUG: הדפסת התשובה המלאה
           console.log('%c[🐛 DEBUG] Full YouTube Music API Response:', 'color:#FF00FF; font-weight:bold');
@@ -617,12 +618,15 @@ async function isMusicVideo(videoId) {
         };
       }
 
+      // Local build: processing runs on the user's own companion, so an
+      // inconclusive probe with ambiguous signals defaults to ALLOW.
+      console.log('[isMusicVideo] ✅ Local build: inconclusive probe - allowing by default');
       return {
-        isMusic: false,
-        category: blockedCategorySignal || "Not Music (YouTube Music inconclusive)",
-        manualRetryEligible: true,
-        manualRetryMessage: MANUAL_MUSIC_RETRY_MESSAGE,
-        toastDurationMs: MANUAL_MUSIC_RETRY_TOAST_MS,
+        isMusic: true,
+        category: blockedCategorySignal
+          ? `Music (Local default; ambiguous: ${blockedCategorySignal})`
+          : 'Music (Local default: YouTube Music probe inconclusive)',
+        manualRetryEligible: false,
         manualLikeOverrideSignal: manualOverride.signals
       };
     }
@@ -631,11 +635,13 @@ async function isMusicVideo(videoId) {
       return { isMusic: false, category: blockedCategorySignal, manualRetryEligible: false };
     }
 
-    return { isMusic: false, category: "Not Music (YouTube Music inconclusive)", manualRetryEligible: false };
+    console.log('[isMusicVideo] ✅ Local build: probe inconclusive - allowing by default');
+    return { isMusic: true, category: 'Music (Local default: YouTube Music probe inconclusive)', manualRetryEligible: false };
 
   } catch (error) {
     console.error("Error analyzing music content:", error);
-    return { isMusic: false, category: "Error", manualRetryEligible: false };
+    // Local build: never block processing on internal errors
+    return { isMusic: true, category: 'Music (Local default: probe error)', manualRetryEligible: false };
   }
 }
 
@@ -811,7 +817,8 @@ async function validateVideo(url, options = {}) {
       : 'pro';
     try {
       // טעינת הפונקציה לבדיקת אורך הסרטון באופן לוקאלי
-      const { getLocalDuration } = await import(chrome.runtime.getURL('utils/videoMetaLocal.js'));
+      await window.ycLoader.js('utils/videoMetaLocal.js');
+      const { getLocalDuration } = window;
       // בדיקת אורך הסרטון באופן מקומי
       const seconds = await getLocalDuration(videoId);
 
@@ -911,7 +918,7 @@ async function validateVideo(url, options = {}) {
  * @param {string} message - הודעת השגיאה
  * @param {number} duration - משך הזמן שההודעה תוצג (ברירת מחדל: 5000)
  */
-export function showErrorOverlay(message, duration = 5000) {
+function showErrorOverlay(message, duration = 5000) {
   // הפונקציה הועברה לקובץ yc-utils.js המרכזי
   // קריאה לפונקציה המרכזית
   if (window.ycUtils && window.ycUtils.showErrorOverlay) {
@@ -926,7 +933,7 @@ export function showErrorOverlay(message, duration = 5000) {
  * @param {string} message - הודעת הדיבאג
  * @param {number} duration - משך הזמן שההודעה תוצג (ברירת מחדל: 3000)
  */
-export function showDebugOverlay(message, duration = 3000) {
+function showDebugOverlay(message, duration = 3000) {
   // הפונקציה הועברה לקובץ yc-utils.js המרכזי
   // קריאה לפונקציה המרכזית
   if (window.ycUtils && window.ycUtils.showDebugOverlay) {
@@ -952,3 +959,5 @@ window.videoValidator = {
   checkChordsInIndexedDB
 };
 console.log("VideoValidator module loaded successfully", window.videoValidator);
+
+})();

@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 // chordsAdjustment.js
 window.createChordsAdjustmentSlider = function(contentExists = true) {
     // Get the base slider components
@@ -38,3 +40,5 @@ window.createChordsAdjustmentSlider = function(contentExists = true) {
 
     return container;
 };
+
+})();

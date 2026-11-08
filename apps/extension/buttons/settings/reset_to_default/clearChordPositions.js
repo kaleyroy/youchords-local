@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 // clearChordPositions.js - Clear chord positions from IndexedDB
 // Memory-safe implementation with proper cleanup
 
@@ -401,3 +403,5 @@ window.showClearLocalPositionsConfirmation = function () {
 };
 
 console.log("[ClearPositions] clearChordPositions.js loaded");
+
+})();

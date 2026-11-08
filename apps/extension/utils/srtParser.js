@@ -1,0 +1,4 @@
+/* yc-module-scope */
+(function () {
+
+})();

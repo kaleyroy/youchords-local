@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 // Capo submenu for capo settings
 
 // Storage keys
@@ -513,3 +515,5 @@ window.disposeCapoSubmenu = function (submenu, remove = false) {
 window.addEventListener("yt-navigate-finish", () => {
   window.disposeCapoSubmenu(null, true);
 });
+
+})();

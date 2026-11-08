@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 /**
  * Fullscreen Panel Handler for YouChords Lyrics & Chords
  * Handles video player scaling and chord positioning in fullscreen mode
@@ -663,3 +665,5 @@ window.isFullscreenPanelActive = isFullscreenPanelActive;
 if (window.DEBUG) {
   console.log("[FullscreenPanel] 📦 מודול נטען בהצלחה");
 }
+
+})();

@@ -1,15 +1,31 @@
 services:
   companion:
-    build:
-      context: ./apps/local-companion
+    # build:
+    #   context: ./apps/local-companion
+    image: youchordslocal-companion:latest
     environment:
       YOUCHORDS_PAIRING_TOKEN: ${YOUCHORDS_PAIRING_TOKEN:?Run install.ps1 to create the pairing token}
       YOUCHORDS_REGULAR_ENGINE: madmom
+      YOUCHORDS_POT_PROVIDER_URL: http://bgutil-pot:4416
+      HTTP_PROXY: http://host.docker.internal:7897
+      HTTPS_PROXY: http://host.docker.internal:7897
+      NO_PROXY: localhost,127.0.0.1,bgutil-pot
     ports:
-      - "127.0.0.1:8765:8765"
+      - "8765:8765"
     restart: unless-stopped
+    depends_on:
+      - bgutil-pot
     volumes:
       - youchords-data:/data
+      # YouTube cookies for yt-dlp (bot-wall bypass); gitignored — contains credentials.
+      # Overwrite ./youtube-cookies.txt with a real export; effective per job, no restart.
+      - ./youtube-cookies.txt:/data/youtube-cookies.txt:ro
+
+  # PO-token provider for yt-dlp (YouTube requires PO tokens for media formats).
+  # Prebuilt image; talks to companion over the compose network only.
+  bgutil-pot:
+    image: brainicism/bgutil-ytdlp-pot-provider:latest
+    restart: unless-stopped
 
 volumes:
   youchords-data:

@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 // Debug logging helper
 const debugLog = (message, data = null) => {
     const log = data ? `[Menu Debug] ${message}:` : `[Menu Debug] ${message}`;
@@ -223,3 +225,5 @@ window.createFontColorSubmenu = function(parentMenu) {
 
     return submenu;
 };
+
+})();

@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 /*==============================================================
   YouChords – buttons/capoIcon.js
   --------------------------------------------------------------
@@ -937,3 +939,5 @@ window.addEventListener("yt-navigate-start", () => {
 });
 
 console.log("[CapoIcon] Module loaded");
+
+})();

@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 /**
  * youtubeSubtitles.js
  * 
@@ -56,7 +58,7 @@ async function ensureGeminiTranscriptionRuntime() {
   if (hasGeminiTranscriptionRuntime()) return true;
 
   try {
-    await import(chrome.runtime.getURL('utils/geminiTranscription.js'));
+    await window.ycLoader.js('utils/geminiTranscription.js');
   } catch (error) {
     console.error('[YouTubeSubs] 🤖 Gemini: Failed to load module', error);
   }
@@ -2182,19 +2184,8 @@ function clearCaptionsCache(videoId = null) {
 // ייצוא
 // ============================================================================
 
-if (typeof window !== 'undefined') {
-  window.youtubeSubtitles = {
-    getAvailableCaptions,
-    fetchAndSaveYouTubeSubtitles,
-    hasAvailableCaptions,
-    getVideoTitle,
-    detectLanguageFromTitle,
-    selectBestCaption,
-    clearCaptionsCache
-  };
-}
-
-export {
+// Classic-script injection: consumers use window.youtubeSubtitles
+window.youtubeSubtitles = {
   getAvailableCaptions,
   fetchAndSaveYouTubeSubtitles,
   hasAvailableCaptions,
@@ -2205,3 +2196,5 @@ export {
 };
 
 if (DEBUG_YOUTUBE_SUBS) console.log('[YouTubeSubs] Module loaded (server-compatible version)');
+
+})();

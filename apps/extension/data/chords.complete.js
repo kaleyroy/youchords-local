@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 // Guitar Chords Data - Compact Format (12852 chords)
 // Auto-generated - Do not edit manually
 
@@ -173414,3 +173416,5 @@ window.COMPLETE_CHORDS = {};
 for (const [name, positions] of Object.entries(COMPLETE_CHORDS_COMPACT)) {
   COMPLETE_CHORDS[name] = positions.map(parseChordPosition);
 }
+
+})();

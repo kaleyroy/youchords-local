@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 /*==============================================================
   YouChords – buttons/audioManager.js
   --------------------------------------------------------------
@@ -37,29 +39,16 @@
   async function loadPitchShifterScript() {
     if (window.PitchShifter) return true;
 
-    // Check if script already exists in DOM
-    const existingScript = document.querySelector(
-      'script[src*="pitch-shifter.js"]'
-    );
-    if (existingScript) {
-      // Wait for it to load
-      await new Promise((resolve) => setTimeout(resolve, 200));
+    // Inject into the ISOLATED world via the privileged bridge
+    // (page-context <script src=chrome-extension://...> is WAR-gated)
+    try {
+      await window.ycLoader.js("buttons/pitch-shifter.js");
+      console.log("[AudioManager] ✅ pitch-shifter.js loaded");
       return !!window.PitchShifter;
+    } catch (e) {
+      console.error("[AudioManager] ❌ Failed to load pitch-shifter.js", e);
+      return false;
     }
-
-    return new Promise((resolve) => {
-      const script = document.createElement("script");
-      script.src = chrome.runtime.getURL("buttons/pitch-shifter.js");
-      script.onload = () => {
-        console.log("[AudioManager] ✅ pitch-shifter.js loaded");
-        resolve(true);
-      };
-      script.onerror = () => {
-        console.error("[AudioManager] ❌ Failed to load pitch-shifter.js");
-        resolve(false);
-      };
-      document.head.appendChild(script);
-    });
   }
 
   /**
@@ -238,4 +227,6 @@
   window.addEventListener("yt-navigate-finish", cleanup);
 
   console.log("[AudioManager] ✅ Module loaded");
+})();
+
 })();

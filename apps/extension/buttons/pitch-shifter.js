@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 /*==============================================================
   YouChords – buttons/pitch-shifter.js
   --------------------------------------------------------------
@@ -492,3 +494,5 @@ class PitchShifter {
 // Export
 window.PitchShifter = PitchShifter;
 console.log("[PitchShifter] ✅ Phase Vocoder module loaded");
+
+})();

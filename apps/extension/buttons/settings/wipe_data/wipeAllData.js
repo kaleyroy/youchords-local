@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 // wipeAllData.js - Wipe all cached data from IndexedDB
 
 /**
@@ -259,3 +261,5 @@ window.wipeAllCachedData = async function() {
     throw error;
   }
 };
+
+})();

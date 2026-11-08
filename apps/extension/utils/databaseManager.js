@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 /* =============================================================================
  *  YouChords – databaseManager.js   (schema v2025-05-v6, obfuscated)
  *  ---------------------------------------------------------------------------
@@ -1630,3 +1632,5 @@ window.databaseManager = {
 };
 
 console.log("[DB] 🔐 databaseManager loaded – schema v2025-05-v7 (obfuscated & encrypted)");
+
+})();

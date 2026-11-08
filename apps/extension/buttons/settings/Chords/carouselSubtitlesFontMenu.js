@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 // Carousel Subtitles Font Menu
 // This submenu allows users to select the font for carousel subtitles
 // carouselSubtitlesFontMenu.js
@@ -425,5 +427,7 @@
 
   // Expose for external use
   window.applyCarouselSubtitlesFont = applyFontToCarouselSubtitles;
+
+})();
 
 })();

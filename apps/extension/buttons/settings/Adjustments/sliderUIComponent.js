@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 // sliderUIComponent.js
 // Helper function to display value tooltip - moved outside to be globally accessible
 window.displayValueTooltip = function(slider, value, type) {
@@ -414,3 +416,5 @@ window.createSubtitleAdjustmentSlider = function() {
 
     return container;
 };
+
+})();

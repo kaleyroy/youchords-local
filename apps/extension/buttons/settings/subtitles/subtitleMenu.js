@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 // Main subtitle menu creation function with improved option names but no category headers
 // פונקציה לניקוי תפריטים ומניעת דליפות זיכרון
 window.disposeMenu = function (id) {
@@ -290,10 +292,9 @@ window.createSubtitleMenu = function (closeCallback) {
       window.subtitleLocationState?.currentValue
     );
 
-    // Import the module
-    const { createSubtitleLocationSubmenu } = await import(
-      "./subtitleLocationMenu.js"
-    );
+    // Load the module (classic-script injection via the privileged bridge)
+    await window.ycLoader.js("buttons/settings/subtitles/subtitleLocationMenu.js");
+    const { createSubtitleLocationSubmenu } = window;
 
     // Check if submenu already exists to prevent memory leaks
     let locationSubmenu = document.querySelector(".subtitle-location-submenu");
@@ -375,3 +376,5 @@ window.createSubtitleMenu = function (closeCallback) {
 
   return menu;
 };
+
+})();

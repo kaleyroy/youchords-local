@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 /**
  * getLocalDuration – ניסיון לשאוב את אורך הסרטון בלי רשת
  * -------------------------------------------------------
@@ -10,7 +12,7 @@
  * @param {number} [retryMs] – כמה זמן (ב-ms) לחכות שה-<video> יתעדכן לפני ויתור (ברירת-מחדל 500)
  * @returns {Promise<number|null>}  – מספר שניות או null אם אי-אפשר מקומית
  */
-export async function getLocalDuration(videoId, retryMs = 500) {
+async function getLocalDuration(videoId, retryMs = 500) {
   // 1. ניסיון ראשון – אלמנט הווידאו (הכי זול ומהיר)
   const videoEl = document.querySelector('video');
   if (videoEl && isFinite(videoEl.duration) && videoEl.duration > 0) {
@@ -46,7 +48,7 @@ export async function getLocalDuration(videoId, retryMs = 500) {
  * @param {Object} options - אפשרויות נוספות ל-fetch
  * @returns {Promise} - תוצאת ה-fetch
  */
-export async function fetchWithTimeout(url, timeout = 7000, options = {}) {
+async function fetchWithTimeout(url, timeout = 7000, options = {}) {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeout);
   
@@ -62,3 +64,9 @@ export async function fetchWithTimeout(url, timeout = 7000, options = {}) {
     throw error;
   }
 }
+
+// Classic-script exposure (chrome.scripting injection)
+window.getLocalDuration = getLocalDuration;
+window.fetchWithTimeout = fetchWithTimeout;
+
+})();

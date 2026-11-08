@@ -6,6 +6,7 @@
   "minimum_chrome_version": "127",
   "permissions": [
     "activeTab",
+    "scripting",
     "storage"
   ],
   "host_permissions": [
@@ -28,6 +29,7 @@
       "js": [
         "utils/productionConsole.js",
         "utils/yc-utils.js",
+        "utils/loaderBridge.js",
         "utils/dynamicLoader.js",
         "content.js"
       ],
@@ -37,20 +39,11 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "config/*.js",
-        "local/auth.js",
-        "utils/*.js",
-        "buttons/*.js",
-        "buttons/*.css",
-        "buttons/settings/**/*.js",
-        "css/*.css",
-        "data/*.js",
-        "data/*.json",
-        "data/*.json.gz",
-        "data/instruments/*.json",
         "images/*",
         "images/**/*",
-        "fonts/**/*.woff2"
+        "fonts/*",
+        "fonts/**/*",
+        "css/yc-local-fonts.css"
       ],
       "matches": ["*://*.youtube.com/*"]
     }

@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 /*==============================================================================
   YouChords – carouselSubtitles.js (Fixed & Optimized)
   ------------------------------------------------------------------------------
@@ -2234,4 +2236,6 @@
     window.addEventListener("yc:carouselSubtitlesFontReset", fontResetHandler);
     window.addEventListener("beforeunload", CarouselSubtitles.cleanupGlobalListeners, { once: true });
   }
+})();
+
 })();

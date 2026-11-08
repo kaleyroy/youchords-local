@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 // Define button order mapping with room for future buttons
 // Export for use in other modules
 window.BUTTON_ORDER = {
@@ -589,3 +591,5 @@ if (document.readyState === 'loading') {
     window.initializeButtonsDisplay();
 }
 
+
+})();

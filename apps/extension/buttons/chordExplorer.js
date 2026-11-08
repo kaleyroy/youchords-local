@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 /*==============================================================
   YouChords – buttons/chordExplorer.js
   --------------------------------------------------------------
@@ -834,11 +836,10 @@ if (window.ycChordExplorerInit) {
         console.log("[ChordExplorer] טוען COMPLETE_CHORDS...");
 
         if (!completeChordsLoadPromise) {
-          const chordsUrl = chrome.runtime.getURL("data/chords.complete.js");
-          completeChordsLoadPromise = import(chordsUrl)
+          completeChordsLoadPromise = window.ycLoader.js("data/chords.complete.js")
             .then(() => {
               if (!window.COMPLETE_CHORDS) {
-                throw new Error("COMPLETE_CHORDS not defined after import");
+                throw new Error("COMPLETE_CHORDS not defined after load");
               }
               completeChordsCache = window.COMPLETE_CHORDS;
               if (window.COMPLETE_CHORDS_COMPACT) {
@@ -1552,3 +1553,5 @@ if (window.ycChordExplorerInit) {
 
   console.log("[ChordExplorer] ✅ Module loaded");
 }
+
+})();

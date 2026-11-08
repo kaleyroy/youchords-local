@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 // Make updateBackgroundOpacity globally accessible
 window.updateBackgroundOpacity = function(selectedOpacityValue, options = {}) {
     const shouldPersist = options.persist !== false;
@@ -264,3 +266,5 @@ window.createBackgroundOpacitySubmenu = function(parentMenu) {
     return submenu;
   }, parentMenu);
 };
+
+})();

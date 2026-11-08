@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 // subtitleButton.js - Full version with word element recycling and fixes
 
 // משתנה לשמירת מצב טעינת מודול subtitle location
@@ -2700,10 +2702,7 @@ window.createSubtitleButton = function () {
 window.createSubtitleButton.isTemporaryFunction = false;
 
 function setupRealSubtitleButton(button) {
-  fetch(chrome.runtime.getURL("images/subtitle/subtitle.svg"))
-    .then((response) =>
-      response.ok ? response.text() : Promise.reject("Failed to load SVG")
-    )
+  window.ycLoader.text("images/subtitle/subtitle.svg")
     .then((svgText) => {
       button.innerHTML = svgText;
     })
@@ -3082,8 +3081,8 @@ function setupRealSubtitleButton(button) {
           // טעינת מודול subtitle location בפעם הראשונה שהכתוביות מופעלות
           if (!subtitleLocationModuleLoaded) {
             try {
-              const { initializeSubtitleLocationPreferences, handleTimelineAlwaysVisibleChange } =
-                await import("./settings/subtitles/subtitleLocationMenu.js");
+              await window.ycLoader.js("buttons/settings/subtitles/subtitleLocationMenu.js");
+              const { initializeSubtitleLocationPreferences, handleTimelineAlwaysVisibleChange } = window;
 
               // שמירת הפונקציה לשימוש חוזר
               window.subtitleLocationHandlers = window.subtitleLocationHandlers || {};
@@ -3454,3 +3453,5 @@ if (
 
 // הערה: subtitle location module נטען באופן דינמי רק כשהכתוביות מופעלות בפעם הראשונה
 // ראה את הקוד בתוך "if (window.subtitleState.isVisible)" למעלה
+
+})();

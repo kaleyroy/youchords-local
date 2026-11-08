@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 /**
  * Clear Video Cache - Delete cached data for current video
  * Allows user to selectively delete chords and/or subtitles for the current video
@@ -383,3 +385,5 @@ function showNotification(message, type = 'info') {
 }
 
 console.log('[ClearVideoCache] Module loaded');
+
+})();

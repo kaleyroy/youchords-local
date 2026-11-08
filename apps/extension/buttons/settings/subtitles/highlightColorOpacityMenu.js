@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 // Make updateHighlightOpacity globally accessible
 window.updateHighlightOpacity = function(selectedOpacityValue) {
     // Update menu UI
@@ -307,3 +309,5 @@ opacityOverlayObserver.observe(document.body, {
     childList: true,
     subtree: true
 });
+
+})();

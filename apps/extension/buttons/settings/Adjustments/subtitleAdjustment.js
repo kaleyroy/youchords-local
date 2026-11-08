@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 // subtitleAdjustment.js
 window.createSubtitleAdjustmentSlider = function(contentExists = true) {
     // Get the base slider components
@@ -109,3 +111,5 @@ window.createSubtitleAdjustmentSlider = function(contentExists = true) {
 
     return container;
 };
+
+})();

@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 // adjustments.js
 window.createAdjustmentsSubmenu = function(parentMenu) {
     const submenu = document.createElement('div');
@@ -207,3 +209,5 @@ window.createAdjustmentsSubmenu = function(parentMenu) {
 
     return submenu;
 };
+
+})();

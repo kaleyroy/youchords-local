@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 /**
  * רכיב כפתור "RESET ALL TO DEFAULT" בהגדרות התזמון
  * מאפשר איפוס הגדרות התזמון של הכתוביות והאקורדים לערכי ברירת המחדל (0)
@@ -136,3 +138,5 @@ function createResetToDefaultButton() {
 
 // ייצוא הפונקציה לשימוש חיצוני
 window.createResetToDefaultButton = createResetToDefaultButton;
+
+})();

@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 // Lyrics & Chords Verse/Chorus Colors Menu
 // This submenu allows users to control verse and chorus background colors
 // verseChorusColorsMenu.js
@@ -631,3 +633,5 @@ window.disposeVerseChorusColorsSubmenu = function (submenu, remove = false) {
 // Expose for external use
 window.applyVerseChorusColors = applyVerseChorusColors;
 window.loadVerseChorusSettings = loadVerseChorusSettings;
+
+})();

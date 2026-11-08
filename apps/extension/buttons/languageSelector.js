@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 // languageSelector.js - Language Selector Component
 // כפתור בחירת שפה לכתוביות - משותף לפאנל ולקרוסלה
 
@@ -372,3 +374,5 @@
   console.log("[LanguageSelector] 🌐 Module loaded");
 
 })(window);
+
+})();

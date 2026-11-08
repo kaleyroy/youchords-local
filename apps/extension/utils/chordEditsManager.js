@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 (function () {
   "use strict";
 
@@ -9916,3 +9918,5 @@
   };
 })();
 
+
+})();

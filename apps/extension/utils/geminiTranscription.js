@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 // Gemini AI Transcription Module
 // Handles video transcription using Google Gemini API
 //
@@ -1582,3 +1584,5 @@ if (typeof window !== 'undefined') {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { fetchGeminiTranscription, fetchGeminiTranscriptionWithFallback };
 }
+
+})();

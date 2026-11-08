@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 /*==============================================================
   YouChords – buttons/lyricsAndChordsButton.js
   --------------------------------------------------------------
@@ -1467,8 +1469,7 @@ if (window.ycLyricsChordsInit) {
     1. טעינת ה-SVG (פעם ראשונה בלבד)
   ------------------------------------------------------------*/
     if (!window.cachedLyricsChordsSVG) {
-      fetch(chrome.runtime.getURL("images/lyricsAndChords/lyricsAndChords.svg"))
-        .then((r) => (r.ok ? r.text() : Promise.reject(`fetch ${r.status}`)))
+      window.ycLoader.text("images/lyricsAndChords/lyricsAndChords.svg")
         .then((svg) => (window.cachedLyricsChordsSVG = svg))
         .catch((err) => {
           console.error("[LyricsChords] SVG load failed:", err);
@@ -1536,8 +1537,7 @@ if (window.ycLyricsChordsInit) {
 
     // טעינת SVG אמיתי
     if (!window.cachedLyricsChordsSVG) {
-      fetch(chrome.runtime.getURL("images/lyricsAndChords/lyricsAndChords.svg"))
-        .then((r) => (r.ok ? r.text() : Promise.reject(`fetch ${r.status}`)))
+      window.ycLoader.text("images/lyricsAndChords/lyricsAndChords.svg")
         .then((svg) => {
           window.cachedLyricsChordsSVG = svg;
           existingButton.innerHTML = svg;
@@ -2281,18 +2281,7 @@ if (window.ycLyricsChordsInit) {
       console.log("[LyricsChords] 🧹 Cleaned up old split view translation mode flag");
     }
 
-    // 🔐 SECURITY: בדיקת JWT לפני הכל - חסימת גישה ללא אימות
-    const jwt = window.__ycGetJwtAsync
-      ? await window.__ycGetJwtAsync()
-      : (window.__ycGetCachedJwt ? window.__ycGetCachedJwt() : null);
-    if (!jwt && !isTutorialDemoAccess) {
-      console.log('[LyricsChords] 🔒 No JWT found - user not signed in');
-      document.querySelectorAll(".ytp-lyrics-chords-button").forEach((btn) => btn.classList.remove("lyrics-chords-active"));
-      showSignInRequiredModal();
-      return;
-    } else if (!jwt && isTutorialDemoAccess) {
-      console.log('[LyricsChords] 🎬 Tutorial demo video - allowing panel without sign-in');
-    }
+    // Local build: no cloud sign-in — the local companion authorizes via the pairing token.
 
     // 🔐 QUOTA CHECK: Lyrics חינם לכולם, אקורדים דורשים קרדיטים
     let chordsCacheOnlyMode = false; // מצב שבו אקורדים חדשים לא זמינים (רק מ-cache)
@@ -3552,10 +3541,7 @@ if (window.ycLyricsChordsInit) {
     // 🆕 Load preview panel module
     console.log("[LyricsChords] 🔄 Loading preview panel module...");
     try {
-      const previewPanelUrl = chrome.runtime.getURL(
-        "buttons/chordsPreviewPanel.js"
-      );
-      await import(previewPanelUrl);
+      await window.ycLoader.js("buttons/chordsPreviewPanel.js");
       console.log("[LyricsChords] ✅ Preview panel module loaded");
     } catch (error) {
       console.warn("[LyricsChords] ⚠️ Failed to load preview panel:", error);
@@ -9534,27 +9520,13 @@ if (window.ycLyricsChordsInit) {
     try {
       // טעינת chordRenderer אם לא קיים
       if (!window.chordRenderer?.renderChord) {
-        const chordRendererUrl = chrome.runtime.getURL(
-          "utils/chordRenderer.js"
-        );
-        const rendererModule = await import(chordRendererUrl);
+        await window.ycLoader.js("utils/chordRenderer.js");
 
         if (
-          rendererModule &&
-          rendererModule.default &&
-          typeof rendererModule.default.renderChord === "function"
-        ) {
-          window.chordRenderer = rendererModule.default;
-        } else if (
-          rendererModule &&
-          typeof rendererModule.renderChord === "function"
-        ) {
-          window.chordRenderer = rendererModule;
-        } else if (
           window.chordRenderer &&
           typeof window.chordRenderer.renderChord === "function"
         ) {
-          // chordRenderer כבר קיים ב-window - משתמש בו
+          // chordRenderer exposes itself on window after injection
         } else {
           throw new Error("ChordRenderer failed to initialize");
         }
@@ -9713,13 +9685,7 @@ if (window.ycLyricsChordsInit) {
     }
 
     if (!panelChordPositionsLoadPromise) {
-      panelChordPositionsLoadPromise = fetch(chrome.runtime.getURL("data/chords.complete.js"))
-        .then((response) => {
-          if (!response.ok) {
-            throw new Error(`Failed to load chord data (${response.status})`);
-          }
-          return response.text();
-        })
+      panelChordPositionsLoadPromise = window.ycLoader.text("data/chords.complete.js")
         .then((sourceText) => {
           panelChordPositionsSourceCache = sourceText;
           scheduleChordPositionsSourceRelease();
@@ -11692,8 +11658,7 @@ if (window.ycLyricsChordsInit) {
     try {
       // טעינת countdownManager.js אם לא נטען
       if (!window.CountdownManager) {
-        const countdownUrl = chrome.runtime.getURL("utils/countdownManager.js");
-        import(countdownUrl)
+        window.ycLoader.js("utils/countdownManager.js")
           .then(() => {
             console.log("[LyricsChords] CountdownManager נטען בהצלחה");
             startCountdown();
@@ -11705,13 +11670,19 @@ if (window.ycLyricsChordsInit) {
         startCountdown();
       }
 
-      // טעינת countdown.css
-      if (!document.querySelector('link[href*="countdown.css"]')) {
-        const link = document.createElement("link");
-        link.rel = "stylesheet";
-        link.href = chrome.runtime.getURL("css/countdown.css");
-        document.head.appendChild(link);
-        console.log("[LyricsChords] countdown.css נטען בהצלחה");
+      // טעינת countdown.css (דרך insertCSS — ללא תלות ב-web_accessible_resources)
+      if (!document.querySelector('link[href*="countdown.css"], style[data-yc-css="countdown.css"]')) {
+        window.ycLoader.css("css/countdown.css")
+          .then(() => {
+            const marker = document.createElement("style");
+            marker.dataset.ycCss = "countdown.css";
+            marker.textContent = ""; // marker only; styles injected via insertCSS
+            document.head.appendChild(marker);
+            console.log("[LyricsChords] countdown.css נטען בהצלחה");
+          })
+          .catch((err) => {
+            console.error("[LyricsChords] שגיאה בטעינת countdown.css:", err);
+          });
       }
     } catch (error) {
       console.error("[LyricsChords] שגיאה באתחול Countdown Manager:", error);
@@ -14410,3 +14381,5 @@ if (!window.ycLyricsChordsInit) {
 /*==============================================================
   סוף הקובץ
 ==============================================================*/
+
+})();

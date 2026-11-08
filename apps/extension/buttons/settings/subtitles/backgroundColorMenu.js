@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 // Make updateBackgroundColor globally accessible
 window.updateBackgroundColor = function(selectedColorValue) {
     // Update menu UI
@@ -210,3 +212,5 @@ window.createBackgroundColorSubmenu = function(parentMenu) {
 
     return submenu;
 };
+
+})();

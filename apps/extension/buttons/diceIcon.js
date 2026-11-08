@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 /*==============================================================
   YouChords – buttons/diceIcon.js
   --------------------------------------------------------------
@@ -913,3 +915,5 @@ attachGlobalListeners();
 
 console.log("[DiceIcon] Module loaded");
 
+
+})();

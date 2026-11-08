@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 // primaryChordsPositionMenu.js - Primary Chords Position Menu
 
 // Global state for primary chords position
@@ -1512,3 +1514,5 @@ chrome.storage.sync.get(
     );
   }
 );
+
+})();

@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 // Active Chord Position submenu for selecting which chord should be active (highlighted)
 // This submenu allows users to choose the position (1-7) where the active chord appears
 // activeChordPositionMenu.js
@@ -346,3 +348,4 @@ window.disposeActiveChordPositionSubmenu = function(submenu, remove = false) {
         }
     }
 }; 
+})();

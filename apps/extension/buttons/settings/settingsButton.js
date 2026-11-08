@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 //settingsButton.js
 window.createSettingsButton = function () {
   const container = document.createElement("div");
@@ -7,8 +9,7 @@ window.createSettingsButton = function () {
   button.className = "ytp-button settings-button";
   button.title = "Settings";
 
-  fetch(chrome.runtime.getURL("images/settings/settings.svg"))
-    .then((response) => response.text())
+  window.ycLoader?.text("images/settings/settings.svg")
     .then((svgText) => {
       button.innerHTML = svgText;
     })
@@ -2710,8 +2711,7 @@ window.createSettingsButton = function () {
 
       if (!window.createAITranscriptionSubmenu) {
         try {
-          const aiTranscriptionMenuUrl = chrome.runtime.getURL("buttons/settings/AI_Transcription/aiTranscriptionMenu.js");
-          await import(aiTranscriptionMenuUrl);
+          await window.ycLoader.js("buttons/settings/AI_Transcription/aiTranscriptionMenu.js");
         } catch (e) {
           console.error("[Settings] Failed to load aiTranscriptionMenu.js:", e);
           return false;
@@ -2839,8 +2839,7 @@ window.createSettingsButton = function () {
           // טעינת המודול אם לא נטען
           if (!window.createTuningSubmenu) {
             try {
-              const tuningMenuUrl = chrome.runtime.getURL("buttons/settings/Tuning/tuningMenu.js");
-              await import(tuningMenuUrl);
+              await window.ycLoader.js("buttons/settings/Tuning/tuningMenu.js");
             } catch (e) {
               console.error("[Settings] Failed to load tuningMenu.js:", e);
               return;
@@ -2866,8 +2865,7 @@ window.createSettingsButton = function () {
           // טעינת המודול אם לא נטען
           if (!window.createCapoSubmenu) {
             try {
-              const capoMenuUrl = chrome.runtime.getURL("buttons/settings/Capo/capoMenu.js");
-              await import(capoMenuUrl);
+              await window.ycLoader.js("buttons/settings/Capo/capoMenu.js");
             } catch (e) {
               console.error("[Settings] Failed to load capoMenu.js:", e);
               return;
@@ -4354,3 +4352,5 @@ window.createSettingsButton = function () {
   container.appendChild(button);
   return container;
 };
+
+})();

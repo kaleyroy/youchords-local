@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 // visualIndicatorsMenu.js - Visual Indicators Menu for controlling carousel position number visibility
 
 // Global state for visual indicators (defaults)
@@ -836,3 +838,5 @@ window.disposeVisualIndicatorsSubmenu = function(submenu, remove = false) {
     submenu.parentNode.removeChild(submenu);
   }
 };
+
+})();

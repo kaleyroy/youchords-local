@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 // Make updateFontOpacity globally accessible
 window.updateFontOpacity = function(selectedOpacityValue) {
     // Update menu UI
@@ -193,3 +195,5 @@ window.createFontOpacitySubmenu = function(parentMenu) {
 
     return submenu;
 };
+
+})();

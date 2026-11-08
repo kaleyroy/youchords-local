@@ -33,9 +33,32 @@ DATA_ROOT = Path(os.environ.get("YOUCHORDS_DATA_DIR", "/data")).resolve()
 CACHE_ROOT = DATA_ROOT / "results"
 UPLOAD_ROOT = DATA_ROOT / "uploads"
 PAIRING_TOKEN = os.environ.get("YOUCHORDS_PAIRING_TOKEN", "").strip()
+# Optional bgutil PO-token provider (YouTube SABR/PO-token enforcement makes
+# media formats unavailable without tokens). Compose runs it as a sidecar service
+# named bgutil-pot; override via env if the deployment differs.
+POT_PROVIDER_URL = os.environ.get("YOUCHORDS_POT_PROVIDER_URL", "").strip() or "http://bgutil-pot:4416"
 MAX_DURATION_SECONDS = int(os.environ.get("YOUCHORDS_MAX_DURATION_SECONDS", "2100"))
 MAX_UPLOAD_BYTES = int(os.environ.get("YOUCHORDS_MAX_UPLOAD_BYTES", str(200 * 1024 * 1024)))
 VIDEO_ID_RE = re.compile(r"^[A-Za-z0-9_-]{11}$")
+# Optional YouTube cookies for yt-dlp: YouTube bot-walls cookieless downloads
+# from shared/proxy exit IPs ("Sign in to confirm you're not a bot").
+# Bind-mounted from the host via compose.yaml (./youtube-cookies.txt).
+YOUTUBE_COOKIES_PATH = DATA_ROOT / "youtube-cookies.txt"
+
+
+def youtube_cookies_ready() -> bool:
+    """True when the file contains at least one real Netscape cookie line
+    (7 tab-separated fields), not just comments/placeholder text."""
+    try:
+        if not YOUTUBE_COOKIES_PATH.is_file():
+            return False
+        for line in YOUTUBE_COOKIES_PATH.read_text(errors="ignore").splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and len(line.split("\t")) >= 7:
+                return True
+        return False
+    except OSError:
+        return False
 
 if len(PAIRING_TOKEN) < 32:
     raise RuntimeError("YOUCHORDS_PAIRING_TOKEN must contain at least 32 characters")
@@ -156,8 +179,9 @@ def download_audio(url: str, job_dir: Path, record: JobRecord) -> Path:
         "--no-playlist",
         "--no-progress",
         "--no-warnings",
-        "--js-runtimes",
-        "node",
+        # No --js-runtimes pin: let yt-dlp auto-pick the best available JS
+        # runtime (Deno required for EJS challenge solving; Debian node is
+        # too old and reported as unsupported).
         "--max-filesize",
         str(MAX_UPLOAD_BYTES),
         "--match-filter",
@@ -170,9 +194,24 @@ def download_audio(url: str, job_dir: Path, record: JobRecord) -> Path:
         output_template,
         url,
     ]
+    if youtube_cookies_ready():
+        # yt-dlp writes the refreshed cookie jar back at the end of a download,
+        # so hand it a writable per-job copy — the mounted source stays read-only.
+        cookies_copy = job_dir / "cookies.txt"
+        shutil.copyfile(YOUTUBE_COOKIES_PATH, cookies_copy)
+        command[1:1] = ["--cookies", str(cookies_copy)]
+    if POT_PROVIDER_URL:
+        command[1:1] = ["--extractor-args", f"youtubepot-bgutilhttp:base_url={POT_PROVIDER_URL}"]
     completed = subprocess.run(command, check=False, capture_output=True, text=True, timeout=900)
     if completed.returncode != 0:
         message = (completed.stderr or completed.stdout or "yt-dlp failed").strip().splitlines()[-1]
+        if "not a bot" in message or "Sign in" in message:
+            state = (
+                "empty — overwrite ./youtube-cookies.txt with a real export"
+                if YOUTUBE_COOKIES_PATH.is_file()
+                else "MISSING — create ./youtube-cookies.txt (bind-mounted to /data)"
+            )
+            message = f"{message} (cookies file {state})"
         raise RuntimeError(message[:500])
 
     candidates = [Path(line.strip()) for line in completed.stdout.splitlines() if line.strip()]

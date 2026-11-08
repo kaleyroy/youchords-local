@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 // Get functions from window and re-expose if needed
 (function() {
     const createSubtitleMenu = window.createSubtitleMenu;
@@ -49,4 +51,6 @@
     if (!window.createLyricsAndChordsPanelWidthSubmenu) {
         window.createLyricsAndChordsPanelWidthSubmenu = createLyricsAndChordsPanelWidthSubmenu;
     }
+})();
+
 })();

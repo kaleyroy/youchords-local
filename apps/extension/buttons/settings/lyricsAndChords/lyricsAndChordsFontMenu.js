@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 // Lyrics & Chords Font Menu
 // This submenu allows users to select the font for the lyrics panel
 // lyricsAndChordsFontMenu.js
@@ -497,5 +499,7 @@
 
   window.applyLyricsPanelFont = applyFontToPanel;
   window.cleanupFontMenuWatchers = stopPanelWatcher;
+
+})();
 
 })();

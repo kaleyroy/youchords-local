@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 // Sizes submenu with 4 size controls
 // sizesMenu.js
 
@@ -1683,3 +1685,5 @@ window.applyAdvancedSettings();
 if (window.ycChordCarousel) {
     window.ycChordCarousel.currentScale = currentCarouselSize;
 }
+
+})();

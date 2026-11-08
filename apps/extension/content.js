@@ -761,11 +761,7 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
         return existing;
       }
 
-      const response = await fetch(chrome.runtime.getURL(YC_TUTORIAL_DEMO_CHORDS_PATH));
-      if (!response.ok) {
-        throw new Error(`Failed to load tutorial demo chords (${response.status})`);
-      }
-      const payloadBytes = await response.arrayBuffer();
+      const payloadBytes = await window.ycLoader.bytes(YC_TUTORIAL_DEMO_CHORDS_PATH);
       const isGzipPayload = new Uint8Array(payloadBytes, 0, Math.min(2, payloadBytes.byteLength));
       let rawText;
       if (isGzipPayload[0] === 0x1f && isGzipPayload[1] === 0x8b) {
@@ -940,12 +936,7 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
         return existing;
       }
 
-      const response = await fetch(chrome.runtime.getURL(YC_TUTORIAL_DEMO_SUBTITLES_PATH));
-      if (!response.ok) {
-        throw new Error(`Failed to load tutorial demo subtitles (${response.status})`);
-      }
-
-      const sentenceSRT = String(await response.text() || '')
+      const sentenceSRT = String(await window.ycLoader.text(YC_TUTORIAL_DEMO_SUBTITLES_PATH) || '')
         .replace(/\r\n/g, '\n')
         .replace(/\r/g, '\n')
         .trim();
@@ -6893,18 +6884,7 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
         return;
       }
 
-      // 🔐 SECURITY: בדיקת JWT לפני הכל - חסימת גישה ללא אימות
-      const jwt = window.__ycGetJwtAsync
-        ? await window.__ycGetJwtAsync()
-        : (window.__ycGetCachedJwt ? window.__ycGetCachedJwt() : null);
-      if (!jwt && !isTutorialDemoAccess) {
-        console.log('[toggleChords] 🔒 No JWT found - user not signed in');
-        clearChordBtn('not-signed-in');
-        showSignInRequiredModal();
-        return;
-      } else if (!jwt && isTutorialDemoAccess) {
-        console.log('[toggleChords] 🎬 Tutorial demo video - allowing local chords without sign-in');
-      }
+      // Local build: no cloud sign-in — the local companion authorizes via the pairing token.
 
       // 💡 ONE-TIME PROMPT: הצעת הוספת Gemini API key (רק פעם אחת)
       if (!isTutorialDemoAccess) {

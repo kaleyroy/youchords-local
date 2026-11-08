@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 /*==============================================================================
   YouChords - lightweight client-side key estimation
   ------------------------------------------------------------------------------
@@ -1093,4 +1095,6 @@
     transposeChordName,
     transposeNoteName,
   };
+})();
+
 })();

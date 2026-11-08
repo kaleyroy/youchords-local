@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 /**
  * Chord Renderer Module – YouChords (2025-05-full)
  * ------------------------------------------------
@@ -2368,3 +2370,5 @@ if (window.chordRenderer && window.chordRenderer.renderChord) {
 
   // סגירת ה-else שנפתח בתחילת הקובץ
 }
+
+})();

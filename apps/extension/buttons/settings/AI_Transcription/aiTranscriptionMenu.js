@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 // AI Transcription Settings Menu
 // Manages when and how to use Gemini API for transcription
 
@@ -662,3 +664,5 @@ window.createAITranscriptionSubmenu = function(parentMenu) {
 
   return submenu;
 };
+
+})();

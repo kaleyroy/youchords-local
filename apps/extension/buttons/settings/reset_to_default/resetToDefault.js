@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 // Default settings remain unchanged but reorganized for clarity
 /* בדיקה ש-DEFAULT_BG_OPACITY מוגדר לפני השימוש בו */
 if (typeof window.DEFAULT_BG_OPACITY === 'undefined') {
@@ -2087,3 +2089,5 @@ window.addResetOption = function(settingsMenu) {
 
     settingsMenu.appendChild(resetOption);
 };
+
+})();

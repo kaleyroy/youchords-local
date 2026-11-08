@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 // Carousel Colors Menu
 // This menu allows users to change carousel colors using themes or advanced options
 // carouselColorsMenu.js
@@ -1683,3 +1685,5 @@ window.disposeCarouselColorsSubmenu = function (submenu, remove = false) {
     }
   }
 };
+
+})();

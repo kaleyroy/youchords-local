@@ -22,19 +22,21 @@ ARG MADMOM_SHA256=64a86a29106e7c4e0c5f4ec96801c2d1a8492db710e4fe27e097da5517d68c
 RUN apt-get update && apt-get install -y --no-install-recommends build-essential \
     curl \
     && python -m venv /opt/venv \
-    && /opt/venv/bin/pip install --no-cache-dir --upgrade pip "setuptools<81" wheel==0.46.2 jaraco.context==6.1.0 \
-    && /opt/venv/bin/pip install --no-cache-dir numpy==1.26.4 "Cython<3" scipy==1.15.3 mido==1.3.3 \
+    && /opt/venv/bin/pip install --no-cache-dir --upgrade pip "setuptools<81" wheel==0.46.2 jaraco.context==6.1.0 -i https://pypi.doubanio.com/simple \
+    && /opt/venv/bin/pip install --no-cache-dir numpy==1.26.4 "Cython<3" scipy==1.15.3 mido==1.3.3 -i https://pypi.doubanio.com/simple \
     && curl --fail --location --retry 4 --retry-delay 2 "$MADMOM_URL" -o /tmp/madmom.tar.gz \
     && echo "$MADMOM_SHA256  /tmp/madmom.tar.gz" | sha256sum --check - \
     && /opt/venv/bin/pip install --no-cache-dir --no-build-isolation /tmp/madmom.tar.gz \
     && rm /tmp/madmom.tar.gz \
-    && /opt/venv/bin/pip install --no-cache-dir --no-build-isolation -r requirements.txt \
+    && /opt/venv/bin/pip install --no-cache-dir --no-build-isolation -r requirements.txt -i https://pypi.doubanio.com/simple \
     && rm -rf /var/lib/apt/lists/*
 
 FROM python:3.10-slim
 
 ARG SONIC_ANNOTATOR_URL=https://github.com/sonic-visualiser/sonic-annotator/releases/download/sonic-annotator-1.7/sonic-annotator-1.7.0-linux64-static.tar.gz
 ARG SONIC_ANNOTATOR_SHA256=ec7838368aa6b20a039d04ebd5d91f4efd26e9c79f713b70843e35880151b919
+# Deno: yt-dlp's EJS challenge solver needs a modern JS runtime (Debian's node 20 is unsupported)
+ARG DENO_URL=https://github.com/denoland/deno/releases/latest/download/deno-x86_64-unknown-linux-gnu.zip
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
@@ -57,7 +59,12 @@ RUN curl --fail --location --retry 4 --retry-delay 2 "$SONIC_ANNOTATOR_URL" -o /
     && chmod +x /app/engine/sonic-annotator/sonic-annotator \
     && cd /app/engine/sonic-annotator \
     && ./sonic-annotator --appimage-extract >/dev/null \
-    && chmod +x /app/engine/sonic-annotator/squashfs-root/AppRun
+    && chmod +x /app/engine/sonic-annotator/squashfs-root/AppRun \
+    && curl --fail --location --retry 4 --retry-delay 2 "$DENO_URL" -o /tmp/deno.zip \
+    && python3 -m zipfile -e /tmp/deno.zip /usr/local/bin/ \
+    && rm /tmp/deno.zip \
+    && chmod +x /usr/local/bin/deno \
+    && deno --version
 
 COPY --from=nnls-builder /src/nnls-chroma.so /app/engine/vamp_plugins/nnls-chroma.so
 COPY --from=nnls-builder /src/nnls-chroma.cat /app/engine/vamp_plugins/nnls-chroma.cat

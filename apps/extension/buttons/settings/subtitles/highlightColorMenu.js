@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 function applyHighlightBackgroundToggleUi(isEnabled) {
     const enabled = isEnabled !== false;
     document.querySelectorAll('.highlight-background-toggle').forEach(toggle => {
@@ -358,3 +360,5 @@ window.createHighlightColorSubmenu = function(parentMenu) {
 
     return submenu;
 };
+
+})();

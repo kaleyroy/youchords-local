@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 // Make updateWordHighlightTextColor globally accessible
 window.updateWordHighlightTextColor = function(selectedColorValue) {
     // Update menu UI
@@ -269,3 +271,5 @@ overlayObserver.observe(document.body, {
     childList: true,
     subtree: true
 });
+
+})();

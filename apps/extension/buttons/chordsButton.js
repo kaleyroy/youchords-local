@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 /*==============================================================
   YouChords – buttons/chordsButton.js (גרסה ממוטבת)
   --------------------------------------------------------------
@@ -55,8 +57,7 @@ function setupRealChordsButton(button) {
     1. טעינת ה-SVG (פעם ראשונה בלבד)
   ------------------------------------------------------------*/
   if (!window.cachedChordsSVG) {                            // עדיין לא נטען
-    fetch(chrome.runtime.getURL('images/chords/chords.svg'))
-      .then(r => r.ok ? r.text() : Promise.reject(`fetch ${r.status}`))
+    window.ycLoader.text('images/chords/chords.svg')
       .then(svg => window.cachedChordsSVG = svg)
       .catch(err => {
         console.error('[ChordsBtn] SVG load failed:', err);
@@ -127,3 +128,5 @@ function setupRealChordsButton(button) {
 /*==============================================================
   סוף הקובץ – כל שינוי לוגי מסומן בהערות # בעברית
 ==============================================================*/
+
+})();

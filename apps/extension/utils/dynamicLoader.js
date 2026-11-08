@@ -15,6 +15,7 @@ const MODULE_GROUPS = {
   /* ---------- Local companion ---------- */
   auth: {
     files: [
+      'config/local-config.js',
       'local/auth.js'
     ],
     dependsOn: []
@@ -171,7 +172,7 @@ const MODULE_GROUPS = {
 const loaded = new Set();     // קבצים שכבר בזיכרון
 const loadingProm = new Map();     // path → Promise
 let aborted = false;         // true → אל תטען קבצים חדשים
-const prefetchLinks = new Set();   // link elements created for prefetch
+const injectedCSS = new Set();     // CSS files already injected via ycLoader
 
 /* --- מפסקי חיים של הטאב ----------------------------------- */
 window.addEventListener('pagehide', () => {          // הדף עוזב / הולך ל-BFCache
@@ -201,8 +202,11 @@ window.addEventListener('visibilitychange', () => {  // מעבר טאב
 let sharedPrefetched = false;
 
 // פונקציה לטעינה מראש של קבצים משותפים - תיקרא רק בלחיצה הראשונה
+// הערה: בעבר נוצרו תגי link[rel=prefetch] לכתובות chrome-extension://
+// שנחסמו על ידי הדפדפן — הטעינה עצמה עוברת כעת דרך ycLoader
+// (chrome.scripting.executeScript בעולם ה-ISOLATED), ולכן אין
+// עוד צורך ב-prefetch אמיתי; שומרים על ה-API לצורך תאימות.
 function prefetchShared() {
-  // אם כבר בוצע prefetch, לא צריך לעשות שוב
   if (sharedPrefetched) {
     if (DEBUG) console.log('[dynamicLoader] Shared files already prefetched');
     return Promise.resolve();
@@ -210,33 +214,12 @@ function prefetchShared() {
 
   if (DEBUG) console.log('[dynamicLoader] Prefetching shared files on demand');
 
-  // סימון שבוצע prefetch
   sharedPrefetched = true;
-
-  // הבטחה שתתממש כשהטעינה תסתיים
-  return new Promise(resolve => {
-    // ביצוע prefetch לכל הקבצים המשותפים
-    const links = [];
-    MODULE_GROUPS.shared.files.forEach(p => {
-      const href = chrome.runtime.getURL(p);
-      if (!document.querySelector(`link[rel="prefetch"][href="${href}"]`)) {
-        const l = document.createElement('link');
-        l.rel = 'prefetch';
-        l.as = 'script';
-        l.href = href;
-        document.head.appendChild(l);
-        links.push(l);
-        prefetchLinks.add(l);
-      }
-    });
-
-    // המתנה קצרה להתחלת הטעינה
-    setTimeout(resolve, 100);
-  });
+  return Promise.resolve();
 }
 
 // -------------------------------------------------------------
-// 4. טעינת קובץ יחיד עם import() + Retry
+// 4. טעינת קובץ יחיד עם ycLoader (executeScript) + Retry
 // -------------------------------------------------------------
 async function loadFile(path, attempt = 1) {
   if (loaded.has(path)) return;
@@ -267,13 +250,14 @@ async function loadFile(path, attempt = 1) {
 
   if (loadingProm.has(path)) return loadingProm.get(path);
 
-  const url = chrome.runtime.getURL(path);
-  const prom = import(url)
-    .then(mod => {
+  // הזרקה דרך גשר ההרשאות (chrome.scripting.executeScript ב-ISOLATED world)
+  // — לא עובר דרך web_accessible_resources, שהוכח כלא אמין
+  const prom = window.ycLoader.js(path)
+    .then(() => {
       if (DEBUG) console.log('[Loader] Loaded', path);
       loaded.add(path);
       loadingProm.delete(path);
-      return mod;
+      return window; // תאימות לממשק הקודם (מודול/namespace)
     })
     .catch(async err => {
       // בדוק שוב את aborted לפני ניסיון חוזר, כי ייתכן שהטאב באמת נסגר/עזב
@@ -343,40 +327,26 @@ const preloadAllButtons = () => ensureButtonsLoaded();
 // 7. טעינת קבצי CSS דינמית
 // -------------------------------------------------------------
 /**
- * טעינת קובץ CSS דינמית
+ * טעינת קובץ CSS דינמית (דרך chrome.scripting.insertCSS — ללא תלות
+ * ב-web_accessible_resources)
  * @param {string} path - נתיב לקובץ CSS
- * @returns {Promise<HTMLLinkElement>} - אלמנט ה-link שנוצר
+ * @returns {Promise<void>}
  */
 function loadCSS(path) {
-  return new Promise((resolve, reject) => {
-    const fullUrl = chrome.runtime.getURL(path); // Get full URL for checking
-    // בדיקה אם הקובץ כבר נטען
-    const existingLink = document.querySelector(`link[href="${fullUrl}"]`); // Check against full URL
-    if (existingLink) {
-      DEBUG && console.log(`[dynamicLoader] CSS כבר נטען: ${path}`);
-      return resolve(existingLink);
-    }
+  if (injectedCSS.has(path)) {
+    DEBUG && console.log(`[dynamicLoader] CSS כבר נטען: ${path}`);
+    return Promise.resolve();
+  }
 
-    // יצירת אלמנט link חדש
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.type = 'text/css';
-    link.href = fullUrl; // Use full URL
-
-    // אירועים לבדיקת הצלחה/כישלון
-    link.onload = () => {
+  return window.ycLoader.css(path)
+    .then(() => {
+      injectedCSS.add(path);
       DEBUG && console.log(`[dynamicLoader] CSS נטען בהצלחה: ${path}`);
-      resolve(link);
-    };
-
-    link.onerror = (err) => {
+    })
+    .catch((err) => {
       console.error(`[dynamicLoader] שגיאה בטעינת CSS: ${path}`, err);
-      reject(err);
-    };
-
-    // הוספה ל-DOM
-    document.head.appendChild(link);
-  });
+      throw err;
+    });
 }
 
 // -------------------------------------------------------------
@@ -403,13 +373,12 @@ function clearCache() {
     window.chordsDisplay.clearSongCache();
   }
 
-  // הסרת קישורי prefetch שנוצרו
-  prefetchLinks.forEach(link => {
+  // הסרת קישורי prefetch שנוצרו בעבר (ליתר ביטחון — לא נוצרים עוד)
+  document.querySelectorAll('link[rel="prefetch"][href^="chrome-extension:"]').forEach(link => {
     try {
       link.remove();
     } catch (e) { /* ignore */ }
   });
-  prefetchLinks.clear();
 
   // GC hint
   if (window.gc) {
@@ -429,13 +398,12 @@ function clearCache() {
 // -------------------------------------------------------------
 
 /**
- * בדיקה אם CSS כבר נטען
+ * בדיקה אם CSS כבר נטען (דרך הגשר — תגי link כבר לא נוצרים)
  * @param {string} path - נתיב לקובץ CSS
  * @returns {boolean} - האם ה-CSS נטען
  */
 function isCSSLoaded(path) {
-  const fullUrl = chrome.runtime.getURL(path);
-  return !!document.querySelector(`link[href="${fullUrl}"]`);
+  return injectedCSS.has(path);
 }
 
 // -------------------------------------------------------------

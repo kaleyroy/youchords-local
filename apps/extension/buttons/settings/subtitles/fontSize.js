@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 // Keep track of existing submenu
 let existingFontSizeSubmenu = null;
 
@@ -224,3 +226,5 @@ window.createFontSizeSubmenu = function(parentMenu) {
 
     return submenu;
 };
+
+})();

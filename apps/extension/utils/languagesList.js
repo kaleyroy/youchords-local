@@ -1,9 +1,11 @@
+/* yc-module-scope */
+(function () {
 /**
  * Language List for Translation Feature
  * Contains all major world languages with their codes and native names
  */
 
-export const LANGUAGES = [
+const LANGUAGES = [
   // Popular languages (top of list)
   { code: 'en', name: 'English', nativeName: 'English' },
   { code: 'he', name: 'Hebrew', nativeName: 'עברית' },
@@ -118,12 +120,12 @@ export const LANGUAGES = [
 ];
 
 // Helper function to get language by code
-export function getLanguageByCode(code) {
+function getLanguageByCode(code) {
   return LANGUAGES.find(lang => lang.code === code);
 }
 
 // Helper function to search languages
-export function searchLanguages(query) {
+function searchLanguages(query) {
   if (!query) return LANGUAGES;
   
   const lowerQuery = query.toLowerCase();
@@ -142,3 +144,5 @@ if (typeof window !== 'undefined') {
 }
 
 console.log('[LanguagesList] Loaded', LANGUAGES.length, 'languages');
+
+})();

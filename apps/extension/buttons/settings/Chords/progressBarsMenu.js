@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 // Beat Grid Menu - Simple ON/OFF toggle for chord beat indicators
 // Controls the visibility and rendering of beat grid squares above chords in the carousel
 
@@ -325,3 +327,5 @@ window.resetBeatGridToDefault = function() {
         return false;
     }
 };
+
+})();

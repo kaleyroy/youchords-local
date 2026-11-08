@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 // Tuning submenu for tuning alert settings
 
 // Storage keys
@@ -308,3 +310,5 @@ window.disposeTuningSubmenu = function (submenu, remove = false) {
 window.addEventListener("yt-navigate-finish", () => {
   window.disposeTuningSubmenu(null, true);
 });
+
+})();

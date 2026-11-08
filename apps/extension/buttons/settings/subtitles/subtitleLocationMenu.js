@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 // subtitleLocationMenu.js - Subtitle Location Menu for customizing subtitle vertical position
 
 // Global state for subtitle location
@@ -17,7 +19,7 @@ if (!window.subtitleLocationHandlers) {
 /**
  * Initializes subtitle location preferences from storage
  */
-export async function initializeSubtitleLocationPreferences() {
+async function initializeSubtitleLocationPreferences() {
   console.log('[SubtitleLocation] 🔍 DEBUG: initializeSubtitleLocationPreferences() started');
   console.log('[SubtitleLocation] 🔍 State BEFORE loading:', window.subtitleLocationState);
   
@@ -72,7 +74,7 @@ export async function initializeSubtitleLocationPreferences() {
  * @param {boolean} isLocked - Whether the location is locked by Timeline Always Visible
  * @returns {HTMLElement} The menu item element
  */
-export function createSubtitleLocationMenuItem(
+function createSubtitleLocationMenuItem(
   parentMenu,
   currentValue,
   isLocked
@@ -136,7 +138,7 @@ export function createSubtitleLocationMenuItem(
  * @param {number} currentValue - The current subtitle location value
  * @returns {HTMLElement} The submenu element
  */
-export function createSubtitleLocationSubmenu(parentMenu, currentValue) {
+function createSubtitleLocationSubmenu(parentMenu, currentValue) {
   // Create submenu container
   const submenu = document.createElement("div");
   submenu.className = "settings-menu subtitle-location-submenu";
@@ -294,7 +296,7 @@ export function createSubtitleLocationSubmenu(parentMenu, currentValue) {
  * @param {number} value - The subtitle location value (0-100 percentage)
  * @param {boolean} isSystemChange - True if this is a system change (lock/unlock), false if user selection
  */
-export function applySubtitleLocation(value, isSystemChange = false) {
+function applySubtitleLocation(value, isSystemChange = false) {
   console.log(
     `[SubtitleLocation] Applying subtitle location: ${value}% (system: ${isSystemChange})`
   );
@@ -335,7 +337,7 @@ export function applySubtitleLocation(value, isSystemChange = false) {
  * - Panel opens/closes
  * - Carousel opens/closes
  */
-export function handleTimelineAlwaysVisibleChange() {
+function handleTimelineAlwaysVisibleChange() {
   // בדיקה אם כתוביות פעילות - אם לא, אין צורך לשנות מיקום
   const subtitleOverlay = document.querySelector('.yt-subtitle-overlay');
   const isSubtitleVisible = window.subtitleState?.isVisible === true;
@@ -376,7 +378,7 @@ export function handleTimelineAlwaysVisibleChange() {
  * Checks if subtitle location is locked by Timeline Always Visible
  * @returns {boolean} True if locked, false otherwise
  */
-export function checkIfLocationLocked() {
+function checkIfLocationLocked() {
   // Check if Timeline Always Visible toggle is ON
   const timelineToggle = window.timelineAlwaysVisibleEnabled;
 
@@ -403,7 +405,7 @@ export function checkIfLocationLocked() {
 /**
  * Updates the grid buttons to reflect the current selected value
  */
-export function updateSubtitleLocationGridUI() {
+function updateSubtitleLocationGridUI() {
   const submenu = document.querySelector(".subtitle-location-submenu");
   if (!submenu) {
     console.log("[SubtitleLocation] ⚠️ Cannot update grid - submenu not found");
@@ -440,7 +442,7 @@ export function updateSubtitleLocationGridUI() {
 /**
  * Updates the Subtitle Location menu item UI based on lock state
  */
-export function updateSubtitleLocationMenuItemState() {
+function updateSubtitleLocationMenuItemState() {
   const menuItem = document.querySelector(".subtitle-location-menu-item");
   if (!menuItem) {
     return; // Menu not open
@@ -473,7 +475,7 @@ export function updateSubtitleLocationMenuItemState() {
  * @param {HTMLElement} parentMenu - The parent menu element
  * @param {number} currentValue - The current subtitle location value (may be outdated)
  */
-export function openSubtitleLocationSubmenu(parentMenu, currentValue) {
+function openSubtitleLocationSubmenu(parentMenu, currentValue) {
   // Check lock state before opening
   const isLocked = checkIfLocationLocked();
   window.subtitleLocationState.isLocked = isLocked;
@@ -549,3 +551,10 @@ if (!window.originalPanelStateSetter) {
     configurable: true
   });
 }
+
+// Classic-script exposure (chrome.scripting injection)
+window.createSubtitleLocationSubmenu = createSubtitleLocationSubmenu;
+window.initializeSubtitleLocationPreferences = initializeSubtitleLocationPreferences;
+window.handleTimelineAlwaysVisibleChange = handleTimelineAlwaysVisibleChange;
+
+})();

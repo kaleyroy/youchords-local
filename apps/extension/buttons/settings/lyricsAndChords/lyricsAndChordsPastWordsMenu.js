@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 // Lyrics & Chords Past Words Menu
 // This submenu allows users to control past words styling AND highlight color
 // lyricsAndChordsPastWordsMenu.js
@@ -906,3 +908,5 @@ window.resetLyricsChordsPastWordsSettings = function () {
   console.log("[PastWords] Settings reset to default");
   return true;
 };
+
+})();

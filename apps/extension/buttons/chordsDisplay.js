@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 /*==============================================================================
   YouChords – chordsDisplay.js (Minimal version for Carousel)
   ------------------------------------------------------------------------------
@@ -279,5 +281,7 @@
     window.chordsDisplay = new ChordsDisplay();
     DEBUG && console.log("[ChordsDisplay] Global instance created");
   }
+
+})();
 
 })();

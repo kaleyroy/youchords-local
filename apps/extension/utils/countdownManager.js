@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 /*==============================================================
   YouChords – utils/countdownManager.js
   --------------------------------------------------------------
@@ -413,3 +415,5 @@ class CountdownManager {
 window.CountdownManager = CountdownManager;
 
 console.log('[CountdownManager] מודול נטען בהצלחה');
+
+})();

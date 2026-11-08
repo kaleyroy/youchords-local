@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 // Lyrics & Chords Spacing Menu
 // This submenu allows users to control various spacing options in the Lyrics panel
 // spacingMenu.js
@@ -618,3 +620,5 @@ function showResetSpacingConfirmation(onSuccess) {
 // Expose default settings for reset functionality
 window.DEFAULT_SPACING_SETTINGS = DEFAULT_SPACING_SETTINGS;
 window.SPACING_STORAGE_KEY = SPACING_STORAGE_KEY;
+
+})();

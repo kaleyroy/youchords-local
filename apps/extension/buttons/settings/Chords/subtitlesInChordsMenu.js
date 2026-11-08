@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 // --- START OF FILE subtitlesInChordsMenu.js ---
 
 // Subtitles In Chords submenu with toggle switch & Fixes for Layout/Sync/CSS
@@ -994,3 +996,5 @@ window.disposeSubtitlesInChordsSubmenu = function (submenu, remove = false) {
     }
   }
 };
+
+})();

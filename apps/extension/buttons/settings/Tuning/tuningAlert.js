@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 // =============================================================
 //  YouChords – tuningAlert.js
 //  Tuning Alert - הודעה קופצת כשה-tuning שונה מ-440 Hz
@@ -650,4 +652,6 @@
   window.checkNonStandardTuning = checkNonStandardTuning;
 
   console.log("[TuningAlert] ✅ Module loaded");
+})();
+
 })();

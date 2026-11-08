@@ -1,6 +1,15 @@
 [CmdletBinding()]
 param()
 
+$proxy="http://127.0.0.1:7897"
+
+$env:HTTP_PROXY=$proxy
+$env:HTTPS_PROXY=$proxy
+$env:http_proxy=$proxy
+$env:https_proxy=$proxy
+
+Write-Host "Proxy: $proxy"
+
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
@@ -31,7 +40,7 @@ Write-Host 'YouChords Local setup' -ForegroundColor Cyan
 if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
     throw 'Docker Desktop is required. Install it from https://www.docker.com/products/docker-desktop/ and run this command again.'
 }
-docker info *> $null
+cmd /c "docker info >nul 2>nul"
 if ($LASTEXITCODE -ne 0) {
     throw 'Docker Desktop is installed but not running. Start it and run this command again.'
 }

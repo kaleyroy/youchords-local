@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 // Chords Mode submenu for selecting chord display variant
 
 // Helper to update menu UI based on selected mode
@@ -1274,3 +1276,5 @@ window.disposeChordDisplaySubmenu = function(submenu, remove = false) {
         }
     }
 };
+
+})();

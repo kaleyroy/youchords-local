@@ -1,4 +1,8 @@
-import { LOCAL_CONFIG } from '../config/local-config.js';
+/* yc-module-scope */
+(function () {
+// Local build: config injected as a classic script before this file
+// (config/local-config.js sets window.YC_LOCAL_CONFIG)
+const LOCAL_CONFIG = window.YC_LOCAL_CONFIG;
 
 const API_BASE = String(LOCAL_CONFIG?.baseUrl || 'http://127.0.0.1:8765').replace(/\/$/, '');
 const PAIRING_TOKEN = String(LOCAL_CONFIG?.pairingToken || '');
@@ -181,15 +185,6 @@ window.ycAuth = {
   checkForProDowngrade,
   ensureFreshSubscriptionForGating
 };
+// Consumers access auth via window.ycAuth (classic-script injection).
 
-export {
-  signInWithGoogle,
-  signOutUser,
-  getCurrentUser,
-  checkQuotaLocal,
-  getChords,
-  getSubscriptionInfo,
-  getJWTPayload,
-  processVideoViaServer,
-  ensureFreshSubscriptionForGating
-};
+})();

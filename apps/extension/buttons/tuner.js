@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 /*==============================================================
   YouChords – buttons/tuner.js
   --------------------------------------------------------------
@@ -1609,16 +1611,13 @@ if (window.ycTunerInit) {
       const video = document.querySelector("video");
       if (!video) return;
 
-      // Load pitch shifter script if not loaded
+      // Load pitch shifter script if not loaded (ISOLATED world via bridge)
       if (!window.PitchShifter) {
-        const script = document.createElement("script");
-        script.src = chrome.runtime.getURL("buttons/pitch-shifter.js");
-        document.head.appendChild(script);
-        // Wait for script to load
-        await new Promise((resolve) => {
-          script.onload = resolve;
-          setTimeout(resolve, 1000); // fallback timeout
-        });
+        try {
+          await window.ycLoader.js("buttons/pitch-shifter.js");
+        } catch (e) {
+          console.error("[Tuner] ❌ Failed to load pitch-shifter.js", e);
+        }
       }
 
       if (window.PitchShifter && !pitchShifter) {
@@ -2626,3 +2625,5 @@ if (window.ycTunerInit) {
     document.head.appendChild(style);
   }
 } // סוף ה-else של מניעת הזרקות כפולות
+
+})();

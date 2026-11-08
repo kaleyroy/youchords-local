@@ -1,3 +1,5 @@
+/* yc-module-scope */
+(function () {
 // Carousel Direction submenu with RTL/LTR/AUTO options
 // This submenu allows users to set the carousel text direction
 // chordsLocationMenu.js (repurposed for carousel direction)
@@ -396,3 +398,5 @@ window.resetCarouselDirectionToDefault = function() {
         return false;
     }
 };
+
+})();
