@@ -93,6 +93,28 @@ window.ycLoader = {
       status: r.status,
       json: r.json
     }));
+  },
+
+  /**
+   * 经后台发起任意 JSON 请求(自定义 method/headers,不带 cookies)。
+   * 供本地 companion(127.0.0.1)使用——content script 直连 http://127.0.0.1
+   * 会被归因到 https 宿主页并触发 PNA/Unsafe attempt 拦截。
+   * @param {string} url - 完整 URL
+   * @param {{method?:string, headers?:object, body?:string|null}} [opts]
+   * @returns {Promise<{status:number, ok:boolean, json:object|null}>}
+   */
+  fetchJson(url, opts = {}) {
+    return ycBridgeSend({
+      type: 'YC_FETCH_JSON',
+      url,
+      method: opts.method || 'GET',
+      headers: opts.headers || {},
+      body: opts.body ?? null
+    }).then(r => ({
+      ok: r.httpOk,
+      status: r.status,
+      json: r.json
+    }));
   }
 };
 

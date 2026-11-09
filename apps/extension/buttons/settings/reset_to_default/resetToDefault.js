@@ -68,7 +68,10 @@ window.DEFAULT_SETTINGS = {
     
     // Beat Grid settings
     beatGridEnabled: true,                // ON by default
-    
+
+    // Measure View settings (chords grouped by bar in lyrics panel)
+    measureViewEnabled: false,            // OFF by default
+
     // Countdown Timer settings
     countdownTimerEnabled: true,          // ON by default
     

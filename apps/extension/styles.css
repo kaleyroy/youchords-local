@@ -2811,3 +2811,39 @@ body.yc-black-position-number-enabled
   color: #8b9ff5 !important;
   text-decoration: underline !important;
 }
+
+/* ── 📏 Panel edge drag-resize handles (Transcribe & Chords) ── */
+.yt-lyrics-chords-panel .yc-resize-edge {
+  position: absolute;
+  top: 20%;
+  bottom: 20%;
+  width: 12px;
+  cursor: ew-resize;
+  z-index: 30;
+  touch-action: none;
+}
+.yt-lyrics-chords-panel .yc-resize-edge.left  { left: 0; }
+.yt-lyrics-chords-panel .yc-resize-edge.right { right: 0; }
+.yt-lyrics-chords-panel .yc-resize-edge::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 3px;
+  transform: translateX(-50%);
+  border-radius: 2px;
+  background: transparent;
+  transition: background 0.15s ease;
+}
+.yt-lyrics-chords-panel .yc-resize-edge:hover::after,
+.yt-lyrics-chords-panel.yc-width-dragging .yc-resize-edge::after {
+  background: #3ea6ff;
+}
+.yt-lyrics-chords-panel.yc-width-dragging {
+  transition: none !important; /* kill 0.3s width transition while dragging */
+}
+.yt-lyrics-chords-panel.yc-width-dragging,
+.yt-lyrics-chords-panel.yc-width-dragging * {
+  user-select: none !important;
+}

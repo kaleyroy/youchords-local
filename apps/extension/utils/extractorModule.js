@@ -440,12 +440,17 @@ function createProgressBar(isDockerProcessing = false, forceNew = false, customT
 
   // טעינת העדפת מזעור מ-storage
   let isMinimized = false;
-  chrome.storage.local.get(['chordsProgressMinimized'], (result) => {
-    isMinimized = result.chordsProgressMinimized || false;
-    if (isMinimized && progressBarElement) {
-      applyMinimizedStyle();
-    }
-  });
+  try {
+    chrome.storage.local.get(['chordsProgressMinimized'], (result) => {
+      isMinimized = result.chordsProgressMinimized || false;
+      if (isMinimized && progressBarElement) {
+        applyMinimizedStyle();
+      }
+    });
+  } catch (err) {
+    // 扩展重载后旧脚本的 chrome.storage 绑定失效 —— 跳过(默认不最小化),入口处会提示刷新
+    console.warn('[Progress] storage read skipped:', err?.message || err);
+  }
 
   // מציאת הוידאו כדי למקם את ה-progress bar בתוכו
   const videoPlayer = document.querySelector('#movie_player');

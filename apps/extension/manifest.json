@@ -42,8 +42,7 @@
         "images/*",
         "images/**/*",
         "fonts/*",
-        "fonts/**/*",
-        "css/yc-local-fonts.css"
+        "fonts/**/*"
       ],
       "matches": ["*://*.youtube.com/*"]
     }

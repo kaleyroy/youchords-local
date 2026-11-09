@@ -56,8 +56,21 @@
   }
 
   function loadLocalFonts() {
-    if (document.getElementById("yc-local-fonts")) return;
+    // 后台 insertCSS 桥注入(page-origin <link> 在 Chrome 153 被 "Unsafe attempt to load URL" 拦截);
+    // files: 方式注入时 @font-face 的相对 url 按 CSS 自身 chrome-extension:// origin 解析,无需 WAR
+    if (window.__ycLocalFontsLoaded) return;
 
+    if (window.ycLoader?.css) {
+      window.__ycLocalFontsLoaded = true;
+      window.ycLoader.css("css/yc-local-fonts.css").catch((err) => {
+        window.__ycLocalFontsLoaded = false;
+        console.warn("[LyricsChordsFont] yc-local-fonts.css inject failed:", err);
+      });
+      return;
+    }
+
+    // 兜底:桥尚未就绪时退回 <link>(旧版 Chrome 下 WAR 仍可用)
+    if (document.getElementById("yc-local-fonts")) return;
     const link = document.createElement("link");
     link.id = "yc-local-fonts";
     link.rel = "stylesheet";

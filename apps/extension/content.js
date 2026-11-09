@@ -6728,7 +6728,28 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
     });
   }
 
+  // 扩展重载后,未刷新页面里的旧 content script 的 chrome.* 绑定全部失效;
+  // 与其让 "Extension context invalidated" 深埋在调用栈里,入口处直接拦截并提示刷新
+  function ycContextAlive() {
+    try {
+      return Boolean(chrome?.runtime?.id);
+    } catch {
+      return false;
+    }
+  }
+
+  function requireFreshPageAfterReload() {
+    if (ycContextAlive()) return true;
+    console.warn('[YouChords] Extension was reloaded — this page still runs the old copy. Press F5 to refresh.');
+    try {
+      alert('YouChords was updated.\nPlease refresh this page (F5) to continue using it.');
+    } catch { /* alert 不可用时静默 */ }
+    return false;
+  }
+  window.requireFreshPageAfterReload = requireFreshPageAfterReload;
+
   async function toggleChords() {
+    if (!requireFreshPageAfterReload()) return;
     console.log('[DEBUG-TOGGLE] toggleChords called! Current state:', {
       'chordsActive': chordsActive,
       'window.chordsActive': window.chordsActive,
@@ -7610,6 +7631,7 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
   └───────────────────────────────────────────────────────────────────────────*/
   let subsActive = false;
   function toggleSubs() {
+    if (!requireFreshPageAfterReload()) return subsActive;
     subsActive = !subsActive;
 
     if (subsActive) {

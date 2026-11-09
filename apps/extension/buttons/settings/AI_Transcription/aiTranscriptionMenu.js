@@ -96,6 +96,12 @@ window.createAITranscriptionSubmenu = function(parentMenu) {
   let promptDisclaimerAcceptedState = false;
   let alwaysAllowYoutubeFallbackState = true;
 
+  // 🔑 内嵌 API Key 编辑器引用(本地 fork:原"打开弹窗配置"链路断裂,Key 在此直接配置)
+  let inlineKeyEditor = null;
+  let keyInput = null;
+  let saveKeyButton = null;
+  let removeKeyButton = null;
+
   const hasActiveGeminiMultiKey = (keys) => Array.isArray(keys)
     && keys.some((keyData) => keyData && keyData.active !== false && keyData.status !== 'disabled');
 
@@ -520,10 +526,11 @@ window.createAITranscriptionSubmenu = function(parentMenu) {
       e.stopPropagation();
       e.preventDefault();
 
-      if (hasApiKeyState && !promptDisclaimerAcceptedState) {
-        openPromptResponsibilityPopup();
-      } else {
-        openApiConfigPopup();
+      // 本地 fork:后台无 openPopup 处理器、popup 也无 Key 输入界面,
+      // 原弹窗配置链路已断 → 直接展开下方内嵌编辑器
+      if (inlineKeyEditor) {
+        inlineKeyEditor.style.display = 'flex';
+        keyInput?.focus();
       }
     };
 
@@ -537,14 +544,108 @@ window.createAITranscriptionSubmenu = function(parentMenu) {
 
     if (hasApiKey && !promptDisclaimerAcceptedState) {
       configureButton.textContent = 'Review Prompt Responsibility';
-    }
-
-    // Hide button if Gemini is fully ready
-    if (isGeminiReady) {
-      configureButton.style.display = 'none';
+    } else if (hasApiKey) {
+      configureButton.textContent = '🔑 Manage API Key';
     }
 
     statusSection.appendChild(configureButton);
+
+    // ═══════════════════════════════════════════════════════════
+    // SECTION 3b: 内嵌 API Key 编辑器(Save = 同时接受 Prompt Responsibility)
+    // ═══════════════════════════════════════════════════════════
+    inlineKeyEditor = document.createElement('div');
+    inlineKeyEditor.style.cssText = `
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 8px;
+    `;
+
+    keyInput = document.createElement('input');
+    keyInput.type = 'password';
+    keyInput.placeholder = 'Paste Gemini API key (AIza…)';
+    keyInput.autocomplete = 'off';
+    keyInput.spellcheck = false;
+    keyInput.style.cssText = `
+      width: 100%;
+      box-sizing: border-box;
+      padding: 8px 10px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 6px;
+      color: #fff;
+      font-size: 12px;
+      outline: none;
+    `;
+    keyInput.addEventListener('click', (e) => e.stopPropagation());
+
+    const keyButtonsRow = document.createElement('div');
+    keyButtonsRow.style.cssText = 'display: flex; gap: 8px;';
+
+    const keyBtnStyle = `
+      flex: 1;
+      padding: 8px 12px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    `;
+
+    saveKeyButton = document.createElement('button');
+    saveKeyButton.textContent = hasApiKey ? 'Replace key' : 'Save';
+    saveKeyButton.style.cssText = keyBtnStyle;
+    saveKeyButton.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const key = (keyInput.value || '').trim();
+      if (!key) {
+        keyInput.focus();
+        return;
+      }
+      // 保存 Key 即接受 Prompt Responsibility(转写会把视频发往 Google Gemini)
+      chrome.storage.local.set(
+        { geminiApiKey: key, geminiApiKeys: [], promptDisclaimerAccepted: true },
+        () => {
+          console.log('[AI Transcription] Gemini API key saved (inline editor)');
+          keyInput.value = '';
+          inlineKeyEditor.style.display = 'none';
+          refreshState();
+        }
+      );
+    });
+
+    removeKeyButton = document.createElement('button');
+    removeKeyButton.textContent = 'Remove key';
+    removeKeyButton.style.cssText = keyBtnStyle;
+    removeKeyButton.style.display = hasApiKey ? 'block' : 'none';
+    removeKeyButton.addEventListener('click', (e) => {
+      e.stopPropagation();
+      chrome.storage.local.set(
+        { geminiApiKey: '', geminiApiKeys: [], promptDisclaimerAccepted: false, aiTranscriptionMode: 'off' },
+        () => {
+          console.log('[AI Transcription] Gemini API key removed');
+          refreshState();
+        }
+      );
+    });
+
+    keyButtonsRow.appendChild(saveKeyButton);
+    keyButtonsRow.appendChild(removeKeyButton);
+
+    const keyDisclaimerNote = document.createElement('div');
+    keyDisclaimerNote.textContent = 'Saving accepts prompt responsibility: the video URL is sent to Google Gemini for transcription. The key is stored only in this browser (chrome.storage.local). Free keys: aistudio.google.com/apikey';
+    keyDisclaimerNote.style.cssText = `
+      font-size: 10px;
+      opacity: 0.6;
+      line-height: 1.5;
+    `;
+
+    inlineKeyEditor.appendChild(keyInput);
+    inlineKeyEditor.appendChild(keyButtonsRow);
+    inlineKeyEditor.appendChild(keyDisclaimerNote);
+    statusSection.appendChild(inlineKeyEditor);
 
     content.appendChild(statusSection);
   });
@@ -593,13 +694,20 @@ window.createAITranscriptionSubmenu = function(parentMenu) {
         statusBox.style.borderColor = isGeminiReady ? 'rgba(74, 222, 128, 0.3)' : 'rgba(251, 191, 36, 0.3)';
       }
 
-      // Update configure button visibility
+      // Update configure button (内嵌编辑器可用,就绪后改为 Manage 而非隐藏)
       if (configureButton) {
-        const isGeminiReady = hasApiKey && promptDisclaimerAcceptedState;
         configureButton.textContent = hasApiKey && !promptDisclaimerAcceptedState
           ? 'Review Prompt Responsibility'
-          : '🔑 Configure API Key';
-        configureButton.style.display = isGeminiReady ? 'none' : 'block';
+          : (hasApiKey ? '🔑 Manage API Key' : '🔑 Configure API Key');
+        configureButton.style.display = 'block';
+      }
+
+      // 内嵌 Key 编辑器按钮状态
+      if (saveKeyButton) {
+        saveKeyButton.textContent = hasApiKey ? 'Replace key' : 'Save';
+      }
+      if (removeKeyButton) {
+        removeKeyButton.style.display = hasApiKey ? 'block' : 'none';
       }
 
       if (alwaysFallbackCheckbox) {

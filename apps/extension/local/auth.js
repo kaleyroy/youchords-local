@@ -32,14 +32,36 @@ function ensureConfigured() {
 
 async function apiFetch(path, options = {}) {
   ensureConfigured();
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: {
-      Authorization: `Bearer ${PAIRING_TOKEN}`,
-      ...(options.body ? { 'Content-Type': 'application/json' } : {}),
-      ...(options.headers || {})
+  const url = `${API_BASE}${path}`;
+  const headers = {
+    Authorization: `Bearer ${PAIRING_TOKEN}`,
+    ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+    ...(options.headers || {})
+  };
+
+  // 首选后台桥:content script 直连 http://127.0.0.1:8765 会被归因到 https 宿主页,
+  // 触发 PNA "Unsafe attempt to load URL" 拦截;后台 SW 受 host_permissions 豁免。
+  // 注意:桥不支持转发 AbortSignal,options.signal 仅由轮询间隔的 abortableDelay 响应。
+  if (typeof window.ycLoader?.fetchJson === 'function') {
+    const response = await window.ycLoader.fetchJson(url, {
+      method: options.method || 'GET',
+      headers,
+      body: options.body ?? null
+    });
+
+    if (!response.ok) {
+      const payload = response.json || {};
+      const error = new Error(payload.detail || payload.error || `Local companion returned ${response.status}`);
+      error.status = response.status;
+      throw error;
     }
-  });
+    return response.json;
+  }
+
+  // 回退:桥前端/后台版本不齐(扩展重载与页面刷新必须成对)时直接请求,
+  // 至少保留旧行为(PNA 未强制或本地 CORS 放行的环境仍可用),避免静默失败。
+  console.warn('[ycAuth] ycLoader.fetchJson unavailable — falling back to direct fetch (may be PNA-blocked)');
+  const response = await fetch(url, { ...options, headers });
 
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}));

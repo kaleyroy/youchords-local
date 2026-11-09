@@ -1,4 +1,5 @@
-import { LOCAL_CONFIG } from './config/local-config.js';
+// local-config.js 已是经典脚本(经 popup.html 先行加载),不再提供 ESM 导出
+const LOCAL_CONFIG = window.YC_LOCAL_CONFIG;
 
 const dot = document.getElementById('status-dot');
 const title = document.getElementById('status-title');

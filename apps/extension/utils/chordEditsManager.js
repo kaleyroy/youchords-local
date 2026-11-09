@@ -1467,6 +1467,15 @@
 
     if (!fullChordLibraryNamesLoadPromise) {
       fullChordLibraryNamesLoadPromise = (async () => {
+        // 经 ycLoader 后台桥读取:content script 直连 fetch(chrome-extension://…)
+        // 会被归因到宿主页并触发 "Unsafe attempt to load URL" 拦截(该文件不在 WAR)
+        if (window.ycLoader?.text) {
+          const sourceText = await window.ycLoader.text("data/chords.complete.js");
+          fullChordLibraryNamesCache = extractCompleteChordNamesFromSource(sourceText);
+          return fullChordLibraryNamesCache;
+        }
+
+        // 兜底:桥不可用时退回直连(本地文件/开发环境)
         const runtime = globalThis.chrome?.runtime;
         const getURL = typeof runtime?.getURL === "function"
           ? runtime.getURL.bind(runtime)

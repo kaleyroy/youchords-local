@@ -805,24 +805,29 @@ if (window.chordRenderer && window.chordRenderer.renderChord) {
       return instrumentLoadPromises.get(instrument.id);
     }
 
-    const promise = fetch(getRuntimeResourceUrl(instrument.resourcePath))
-      .then((response) => {
+    // 经 ycLoader 后台桥读取:content script 直连 fetch(chrome-extension://…)
+    // 会被归因到宿主页并触发 "Unsafe attempt to load URL" 拦截(这些 json 不在 WAR)
+    const promise = (async () => {
+      let data;
+      if (window.ycLoader?.text) {
+        data = JSON.parse(await window.ycLoader.text(instrument.resourcePath));
+      } else {
+        // 兜底:桥不可用(版本不齐/本地文件环境)时退回直连
+        const response = await fetch(getRuntimeResourceUrl(instrument.resourcePath));
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}`);
         }
-        return response.json();
-      })
-      .then((data) => {
-        const chords = data?.chords && typeof data.chords === "object" ? data.chords : {};
-        instrumentPositionData.set(instrument.id, chords);
-        instrumentLoadPromises.delete(instrument.id);
-        return chords;
-      })
-      .catch((error) => {
-        instrumentLoadPromises.delete(instrument.id);
-        console.warn(`[ChordRenderer] Failed loading ${instrument.name} positions:`, error);
-        return null;
-      });
+        data = await response.json();
+      }
+      const chords = data?.chords && typeof data.chords === 'object' ? data.chords : {};
+      instrumentPositionData.set(instrument.id, chords);
+      instrumentLoadPromises.delete(instrument.id);
+      return chords;
+    })().catch((error) => {
+      instrumentLoadPromises.delete(instrument.id);
+      console.warn(`[ChordRenderer] Failed loading ${instrument.name} positions:`, error);
+      return null;
+    });
 
     instrumentLoadPromises.set(instrument.id, promise);
     return promise;

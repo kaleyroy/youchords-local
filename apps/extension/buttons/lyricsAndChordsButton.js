@@ -2584,6 +2584,10 @@ if (window.ycLyricsChordsInit) {
             // 🎯 אם במצב Auto - המשך ל-Gemini fallback
             if (isAutoMode) {
               console.log('[LyricsChords] 🤖 No YouTube captions, but Auto mode - will try Gemini fallback');
+            } else if (window.chordsDisplay?.currentSongData?.chords?.length) {
+              // 🎼 无字幕但已有和弦数据:放行为"纯和弦模式"——
+              // 面板可开,Measure 小节视图按纯和弦行渲染(普通列表视图无意义,见内容加载处的引导)
+              console.log('[LyricsChords] 🎼 No captions, but chords data available - opening in chords-only mode');
             } else {
               // OFF mode - עצור
               console.log('[LyricsChords] No captions available and AI disabled - showing toast and stopping');
@@ -3603,6 +3607,8 @@ if (window.ycLyricsChordsInit) {
     // רוחב יוגדר ב-setupPanelWidthControls() לפי localStorage או ברירת מחדל
     // window.currentLyricsChordsPanelWidth יוגדר שם
     lyricsChordsPanelElement.innerHTML = `
+    <div class="yc-resize-edge left" data-resize-dir="left" title="Drag to resize panel width"></div>
+    <div class="yc-resize-edge right" data-resize-dir="right" title="Drag to resize panel width"></div>
     <div class="lyrics-chords-header">
       <h1 class="lyrics-chords-title">Transcribe & Chords</h1>
       <div class="header-controls-row">
@@ -3640,6 +3646,10 @@ if (window.ycLyricsChordsInit) {
         </div>
         <span class="scroll-control-label">Countdown</span>
         <div class="scroll-toggle active" id="countdown-toggle">
+          <div class="toggle-slider"></div>
+        </div>
+        <span class="scroll-control-label">Measure</span>
+        <div class="scroll-toggle" id="measure-view-toggle" title="Measure view — chords grouped by bar, synced with lyrics">
           <div class="toggle-slider"></div>
         </div>
         <button class="sentence-mode-icon" id="sentence-mode-toggle" title="Sentence Mode (break by punctuation)">¶</button>
@@ -3768,10 +3778,18 @@ if (window.ycLyricsChordsInit) {
   function setupPanelWidthControls() {
     // קבועים לרוחב הפאנל
     const MIN_PANEL_WIDTH = 300;
-    const MAX_PANEL_WIDTH = 500;
+    const MAX_PANEL_WIDTH = 800; // hard cap; live cap also respects the viewport (see getMaxPanelWidth)
     const DEFAULT_PANEL_WIDTH = 350;
     const PANEL_WIDTH_STEP = 50;
     const STORAGE_KEY = "youchords_panel_width";
+
+    // 📏 Dynamic ceiling: never wider than ~50% of the viewport (drag & ± buttons share it)
+    function getMaxPanelWidth() {
+      return Math.max(
+        MIN_PANEL_WIDTH + 50,
+        Math.min(MAX_PANEL_WIDTH, Math.floor(window.innerWidth * 0.5))
+      );
+    }
 
     // פונקציות המרה בין ערכים אמיתיים לתצוגה למשתמש
     function pxToDisplay(px) {
@@ -3789,7 +3807,8 @@ if (window.ycLyricsChordsInit) {
       if (savedWidth) {
         const parsedWidth = parseInt(savedWidth, 10);
         if (parsedWidth >= MIN_PANEL_WIDTH && parsedWidth <= MAX_PANEL_WIDTH) {
-          currentPanelWidth = parsedWidth;
+          // clamp a big-screen save down to the current viewport's ceiling instead of rejecting it
+          currentPanelWidth = Math.min(parsedWidth, getMaxPanelWidth());
         }
       }
     } catch (error) {
@@ -3916,8 +3935,8 @@ if (window.ycLyricsChordsInit) {
 
           // עדכון מצב כפתורים
           decreaseBtn.disabled = newWidth <= MIN_PANEL_WIDTH;
-          const increaseBtn = document.getElementById("panel-width-increase");
-          if (increaseBtn) increaseBtn.disabled = false;
+          const incBtn = document.getElementById("panel-width-increase");
+          if (incBtn) incBtn.disabled = newWidth >= getMaxPanelWidth();
         },
         { signal: lyricsChordsPanelController.signal }
       );
@@ -3930,7 +3949,7 @@ if (window.ycLyricsChordsInit) {
         "click",
         async () => {
           const newWidth = Math.min(
-            MAX_PANEL_WIDTH,
+            getMaxPanelWidth(),
             currentPanelWidth + PANEL_WIDTH_STEP
           );
           if (newWidth !== currentPanelWidth) {
@@ -3939,7 +3958,7 @@ if (window.ycLyricsChordsInit) {
           }
 
           // עדכון מצב כפתורים
-          increaseBtn.disabled = newWidth >= MAX_PANEL_WIDTH;
+          increaseBtn.disabled = newWidth >= getMaxPanelWidth();
           const decreaseBtn = document.getElementById("panel-width-decrease");
           if (decreaseBtn) decreaseBtn.disabled = false;
         },
@@ -3951,7 +3970,105 @@ if (window.ycLyricsChordsInit) {
     if (decreaseBtn)
       decreaseBtn.disabled = currentPanelWidth <= MIN_PANEL_WIDTH;
     if (increaseBtn)
-      increaseBtn.disabled = currentPanelWidth >= MAX_PANEL_WIDTH;
+      increaseBtn.disabled = currentPanelWidth >= getMaxPanelWidth();
+
+    // 📏 Drag-to-resize: grab a panel edge and drag horizontally (300–500px, same range as the ± buttons)
+    const resizeEdges = lyricsChordsPanelElement.querySelectorAll(".yc-resize-edge");
+    if (resizeEdges.length) {
+      let dragActive = false;
+      let dragDir = "left";
+      let dragStartX = 0;
+      let dragStartWidth = 0;
+      let dragPendingWidth = 0;
+      let dragRafId = null;
+
+      const applyDragLive = () => {
+        dragRafId = null;
+        if (!dragActive) return;
+        const w = dragPendingWidth;
+        lyricsChordsPanelElement.style.width = w + "px";
+        window.currentLyricsChordsPanelWidth = w;
+        if (displayElement) displayElement.textContent = pxToDisplay(w);
+        // light layout nudge only — content re-wrap happens once, on release
+        try {
+          const direction = lyricsChordsPanelElement.classList.contains(
+            "yt-lyrics-chords-rtl"
+          )
+            ? "rtl"
+            : "ltr";
+          resetVideoAndPagePosition();
+          if (!window.reflowLyricsChordsLayout?.(direction, "panel drag")) {
+            adjustVideoPosition(direction, true);
+          }
+          if (window.ycChordsPreviewPanel?.isVisible) {
+            window.ycChordsPreviewPanel?._requestLayoutReflow?.("panel drag");
+          }
+        } catch (dragLayoutError) {
+          /* non-fatal during drag */
+        }
+      };
+
+      const endWidthDrag = async (evt) => {
+        if (!dragActive) return;
+        dragActive = false;
+        if (dragRafId !== null) {
+          cancelAnimationFrame(dragRafId);
+          dragRafId = null;
+        }
+        try { evt?.target?.releasePointerCapture?.(evt.pointerId); } catch (e) { /* already released */ }
+        lyricsChordsPanelElement.classList.remove("yc-width-dragging");
+        document.body.style.userSelect = "";
+        if (dragPendingWidth !== currentPanelWidth) {
+          currentPanelWidth = dragPendingWidth;
+          await updatePanelWidth(currentPanelWidth); // persist + full reflow + re-wrap content
+        }
+        const decBtn = document.getElementById("panel-width-decrease");
+        const incBtn = document.getElementById("panel-width-increase");
+        if (decBtn) decBtn.disabled = currentPanelWidth <= MIN_PANEL_WIDTH;
+        if (incBtn) incBtn.disabled = currentPanelWidth >= getMaxPanelWidth();
+      };
+
+      resizeEdges.forEach((edge) => {
+        edge.addEventListener(
+          "pointerdown",
+          (e) => {
+            if (e.button !== 0) return;
+            dragActive = true;
+            dragDir = edge.dataset.resizeDir === "right" ? "right" : "left";
+            dragStartX = e.clientX;
+            dragStartWidth = currentPanelWidth;
+            dragPendingWidth = currentPanelWidth;
+            lyricsChordsPanelElement.classList.add("yc-width-dragging");
+            document.body.style.userSelect = "none";
+            try { edge.setPointerCapture(e.pointerId); } catch (err) { /* capture optional */ }
+            e.preventDefault();
+          },
+          { signal: lyricsChordsPanelController.signal }
+        );
+
+        edge.addEventListener(
+          "pointermove",
+          (e) => {
+            if (!dragActive) return;
+            const delta =
+              dragDir === "left"
+                ? dragStartX - e.clientX   // left edge: drag leftwards ⇒ wider
+                : e.clientX - dragStartX;  // right edge: drag rightwards ⇒ wider
+            dragPendingWidth = Math.max(
+              MIN_PANEL_WIDTH,
+              Math.min(getMaxPanelWidth(), dragStartWidth + delta)
+            );
+            if (dragRafId === null) dragRafId = requestAnimationFrame(applyDragLive);
+          },
+          { signal: lyricsChordsPanelController.signal }
+        );
+
+        edge.addEventListener("pointerup", endWidthDrag, { signal: lyricsChordsPanelController.signal });
+        edge.addEventListener("pointercancel", endWidthDrag, { signal: lyricsChordsPanelController.signal });
+      });
+
+      console.log("[LyricsChords] 📏 Panel drag-resize handles wired");
+    }
 
     console.log(
       "[LyricsChords] כפתורי רוחב פאנל הוקמו - רוחב נוכחי:",
@@ -4622,8 +4739,23 @@ if (window.ycLyricsChordsInit) {
     const combinedData = await combineLyricsAndChords();
 
     if (combinedData.length === 0) {
+      // 🎼 纯和弦模式:无歌词但有和弦数据 + Measure 开启 → 直接渲染小节视图(仅和弦行)
+      const chordsOnlyList = window.chordsDisplay?.currentSongData?.chords;
+      if (window.measureViewEnabled && window.ycMeasureChart && chordsOnlyList?.length) {
+        console.log('[LyricsChords] 🎼 Chords-only Measure view (no lyrics)');
+        targetContainer.innerHTML = '<div class="lyrics-chords-lines"></div>';
+        try {
+          window.ycMeasureChart.onContentRendered([], chordsOnlyList, targetContainer);
+        } catch (measureErr) {
+          console.warn('[LyricsChords] Measure view failed:', measureErr);
+        }
+        return;
+      }
+      const hint = chordsOnlyList?.length
+        ? 'No lyrics for this video — turn ON the "Measure" toggle to view chords by bar'
+        : 'No synchronized data available';
       targetContainer.innerHTML =
-        '<div class="lyrics-chords-error">No synchronized data available</div>';
+        `<div class="lyrics-chords-error">${hint}</div>`;
       return;
     }
 
@@ -5127,6 +5259,21 @@ if (window.ycLyricsChordsInit) {
       html += "</div>";
       targetContainer.innerHTML = html;
       htmlBuildSuccess = true;
+
+      // 🎼 Measure View hook (additive): hand data to the measure chart
+      // synchronously — combinedData is released a few lines below
+      if (window.measureViewEnabled && window.ycMeasureChart) {
+        try {
+          window.ycMeasureChart.onContentRendered(
+            combinedData,
+            window.chordsDisplay?.currentSongData?.chords,
+            targetContainer
+          );
+        } catch (measureErr) {
+          console.warn("[LyricsChords] Measure view failed:", measureErr);
+        }
+      }
+
       schedulePastWordsSyncAfterRender(0);
 
       // Avoid expensive stringify here; it spikes memory on large payloads.
@@ -7775,6 +7922,13 @@ if (window.ycLyricsChordsInit) {
     const currentTime = video.currentTime;
     const subtitleCurrentTime = getAdjustedSubtitleTime(currentTime);
     highlightStats.totalCalls++;
+
+    // 🎼 Measure View: delegate highlighting to the measure chart and skip
+    // the legacy word/chord highlight (its DOM is not present in this view)
+    if (window.measureViewEnabled && window.ycMeasureChart?.isEnabled) {
+      window.ycMeasureChart.updateHighlight(currentTime);
+      return;
+    }
 
     // אופטימיזציה 1: Throttling חכם - מניעת עדכונים תכופים מדי
     const now = performance.now();
@@ -12558,6 +12712,26 @@ if (window.ycLyricsChordsInit) {
           chordsPreviewActive = false;
           updateChordsPreviewIcon();
           saveChordsPreviewState();
+        },
+        { signal: lyricsChordsPanelController.signal }
+      );
+    }
+
+    // 🎼 Event listener ל-Measure View toggle (chords grouped by bar)
+    const measureViewToggle = lyricsChordsPanelElement.querySelector(
+      "#measure-view-toggle"
+    );
+    if (measureViewToggle) {
+      // אתחול מצב חזותי מההעדפה השמורה
+      if (window.measureViewEnabled) {
+        measureViewToggle.classList.add("active");
+      }
+      measureViewToggle.addEventListener(
+        "click",
+        function () {
+          if (typeof window.toggleMeasureView === "function") {
+            window.toggleMeasureView();
+          }
         },
         { signal: lyricsChordsPanelController.signal }
       );

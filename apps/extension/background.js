@@ -69,6 +69,26 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           break;
         }
 
+        case 'YC_FETCH_JSON': {
+          // 通用 JSON 请求(自定义 method/headers,不带 cookies)。
+          // 供本地 companion(http://127.0.0.1:8765)等使用:content script
+          // 直连会被归因到 https 宿主页并触发 PNA/Unsafe attempt 拦截,
+          // 后台 SW 发起则仅受 host_permissions 约束。
+          const response = await fetch(message.url, {
+            method: message.method || 'GET',
+            headers: message.headers || {},
+            body: message.body ?? undefined
+          });
+          let json = null;
+          try {
+            json = await response.json();
+          } catch (e) {
+            // 非 JSON 响应时保留 null
+          }
+          sendResponse({ ok: true, status: response.status, httpOk: response.ok, json });
+          break;
+        }
+
         default:
           sendResponse({ ok: false, error: `Unknown message type: ${message.type}` });
       }
