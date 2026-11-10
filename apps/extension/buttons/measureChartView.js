@@ -355,7 +355,8 @@ function renderView() {
     html += '</div>';
     html += '<div class="yc-m-words">';
     for (const w of m.words) {
-      html += `<span class="yc-m-word" data-wi="${w.wi}" data-time="${w.start.toFixed(3)}">${escapeHtml(w.word)}</span>`;
+      // 词间必须留空白:纯 inline span 连续拼接无换行点,整节歌词会单行溢出
+      html += `<span class="yc-m-word" data-wi="${w.wi}" data-time="${w.start.toFixed(3)}">${escapeHtml(w.word)}</span> `;
     }
     html += '</div>';
     html += '</div>';
@@ -735,7 +736,10 @@ function ensureCss() {
       white-space: nowrap; display: inline-block; margin-inline-end: 3px;
     }
     .yc-m-chord.yc-m-active { text-decoration: underline; text-underline-offset: 2px; }
-    .yc-m-words { margin-top: 3px; font-size: 12px; line-height: 1.35; }
+    .yc-m-words {
+      margin-top: 3px; font-size: 12px; line-height: 1.35;
+      overflow-wrap: break-word; /* 超长单词兜底断行,防止横向溢出压到相邻小节 */
+    }
     .yc-m-word { cursor: pointer; border-radius: 3px; padding: 0 1px; }
     .yc-m-word:hover { background: rgba(127,127,127,0.25); }
     .yc-m-word.yc-m-active { color: #3ea6ff; font-weight: 600; }
