@@ -185,7 +185,9 @@
 
         this.currentSongData = {
           chords: chords,
-          videoId: videoId
+          videoId: videoId,
+          // Madmom beat/downbeat payload (measure view); null on old caches
+          beatsData: chordData?.beatsData || null
         };
 
         DEBUG && console.log("[ChordsDisplay] Loaded", chords.length, "chords");

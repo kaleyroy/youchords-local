@@ -6,6 +6,9 @@ services:
     environment:
       YOUCHORDS_PAIRING_TOKEN: ${YOUCHORDS_PAIRING_TOKEN:?Run install.ps1 to create the pairing token}
       YOUCHORDS_REGULAR_ENGINE: madmom
+      # Downbeat detection (madmom RNN+DBN) runs on every analysis by default
+      # (~20-60s extra per song). Uncomment to skip it and keep jobs fast.
+      # YOUCHORDS_DOWNBEATS: "0"
       YOUCHORDS_POT_PROVIDER_URL: http://bgutil-pot:4416
       HTTP_PROXY: http://host.docker.internal:7897
       HTTPS_PROXY: http://host.docker.internal:7897

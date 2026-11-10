@@ -62,12 +62,41 @@ function decodePackedChordTimeline(encodedTimeline, chordNames, scale) {
   return decodedEntries.join(",");
 }
 
+// Decode packed beat timeline "deltaMs.position,..." (position 1 = downbeat)
+// into [{ time, pos }] with time in seconds.
+function decodePackedBeats(encodedBeats, scale) {
+  if (!encodedBeats || typeof encodedBeats !== "string") {
+    return [];
+  }
+
+  let currentTime = 0;
+  const beats = [];
+
+  String(encodedBeats).split(",").forEach((part) => {
+    const separatorIndex = part.indexOf(".");
+    if (separatorIndex <= 0) return;
+
+    const delta = Number(part.slice(0, separatorIndex));
+    const position = Number(part.slice(separatorIndex + 1));
+
+    if (!Number.isFinite(delta) || !Number.isInteger(position) || position < 1) {
+      return;
+    }
+
+    currentTime += delta / scale;
+    beats.push({ time: currentTime, pos: position });
+  });
+
+  return beats;
+}
+
 function normalizeChordPayload(chordsData) {
   if (!isPackedChordPayload(chordsData)) {
     return chordsData;
   }
 
   const scale = Number(chordsData.s) > 0 ? Number(chordsData.s) : 1000;
+  const beats = decodePackedBeats(chordsData.b, scale);
   return {
     regular: decodePackedChordTimeline(chordsData.r, chordsData.c, scale),
     regularPlus: decodePackedChordTimeline(chordsData.rp, chordsData.c, scale),
@@ -78,6 +107,10 @@ function normalizeChordPayload(chordsData) {
     capoChords: chordsData.capoChords || null,
     chordPositions: chordsData.chordPositions || null,
     chordEngineVersion: chordsData.e || chordsData.ev || chordsData.chordEngineVersion || chordsData.engineVersion || null,
+    // Optional madmom beat/downbeat payload; missing on pre-downbeat caches
+    beats,
+    detectedBpm: Number.isFinite(Number(chordsData.tp)) ? Number(chordsData.tp) : null,
+    detectedMeter: Number.isInteger(Number(chordsData.m)) ? Number(chordsData.m) : null,
   };
 }
 
@@ -1624,6 +1657,10 @@ async function fetchAndSaveChords(videoId, options = {}) {
       hasNonStandardTuning: chordsData.hasNonStandardTuning || false,  // Flag for non-Pro+ users
       capoChords: chordsData.capoChords || null,  // Backward compatibility for older R2 files
       chordPositions: chordsData.chordPositions || null,  // Generated client-side when missing
+      // Madmom beat/downbeat payload for the measure view ({bpm, meter, beats:[{time,pos}]})
+      beatsData: Array.isArray(chordsData.beats) && chordsData.beats.length
+        ? { bpm: chordsData.detectedBpm || null, meter: chordsData.detectedMeter || null, beats: chordsData.beats }
+        : null,
       offset: 0,
       timestamp: Date.now(),
       source: 'r2',

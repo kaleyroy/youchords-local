@@ -101,6 +101,19 @@ async function getResult(videoId, signal) {
   }
 }
 
+// Drop the companion-side cached analysis so the next getChords re-enqueues a
+// full job (used by the measure view's "Re-analyze" to obtain beat data).
+async function deleteCachedResult(videoId) {
+  try {
+    await apiFetch(`/v1/results/${encodeURIComponent(videoId)}`, { method: 'DELETE' });
+    return true;
+  } catch (error) {
+    if (error.status === 404) return true;
+    console.warn('[Auth] deleteCachedResult failed:', error);
+    return false;
+  }
+}
+
 async function getChords(videoId, options = {}) {
   const signal = options.signal || null;
   try {
@@ -198,6 +211,7 @@ window.ycAuth = {
   getCurrentUser,
   checkQuotaLocal,
   getChords,
+  deleteCachedResult,
   getSubscriptionInfo,
   getJWTPayload,
   processVideoViaServer,

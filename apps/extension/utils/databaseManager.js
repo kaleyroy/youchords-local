@@ -112,6 +112,7 @@ const FIELD_MAP = {
   tuningValue: 'd8',
   hasNonStandardTuning: 'd9',
   userChordEdits: 'd10',
+  beatsData: 'd13',
 
   // Subtitles fields
   sentenceSRT: 't1',
@@ -549,10 +550,14 @@ async function saveToDatabase(dbType, videoId, data, timingOffset = 0, _isRetry 
 
   let preservedSubtitleOffsets = null;
   let preservedChordEdits = null;
-  if (dbType === "chords" && data?.userChordEdits === undefined) {
+  let preservedBeatsData = null;
+  if (dbType === "chords" && (data?.userChordEdits === undefined || data?.beatsData === undefined)) {
     try {
       const existing = await loadFromDatabase("chords", videoId);
       preservedChordEdits = existing?.userChordEdits || null;
+      // 部分保存(如仅更新 chordPositions/chordModes)不带 beatsData 时,
+      // 保留已存的管线节拍数据,避免小节视图回退到推算网格
+      preservedBeatsData = existing?.beatsData ?? null;
     } catch (error) {
       console.warn("[DatabaseManager] Failed to preserve userChordEdits:", error);
     }
@@ -590,6 +595,10 @@ async function saveToDatabase(dbType, videoId, data, timingOffset = 0, _isRetry 
         localChordPositions: data.localChordPositions,
         tuningValue: data.tuningValue || data.tuning || "",
         hasNonStandardTuning: data.hasNonStandardTuning || false,
+        beatsData:
+          data.beatsData !== undefined
+            ? data.beatsData
+            : preservedBeatsData,
         userChordEdits:
           data.userChordEdits !== undefined
             ? data.userChordEdits

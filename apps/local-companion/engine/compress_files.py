@@ -125,7 +125,7 @@ def _pack_chord_timelines(all_data):
     )
     chord_index = {chord_name: index for index, chord_name in enumerate(chord_names)}
 
-    return {
+    packed = {
         "v": 2,
         "s": PACKED_CHORD_SCALE,
         "c": chord_names,
@@ -138,6 +138,17 @@ def _pack_chord_timelines(all_data):
         "e": all_data.get("chordEngineVersion") or "chordino-v1",
     }
 
+    # Optional beat/downbeat payload from madmom ("deltaMs.position" list,
+    # position 1 = downbeat). Old readers ignore these keys; old caches just
+    # lack them — both sides stay v2-compatible.
+    downbeats = all_data.get("downbeats")
+    if isinstance(downbeats, dict) and downbeats.get("beats"):
+        packed["tp"] = downbeats.get("bpm")
+        packed["m"] = downbeats.get("meter")
+        packed["b"] = downbeats.get("beats")
+
+    return packed
+
 
 def save_chords_json(
     video_id,
@@ -147,12 +158,13 @@ def save_chords_json(
     tuning_file,
     regularplus_file=None,
     chord_engine_version=None,
+    downbeats=None,
 ):
     """
     Save chord files as ONE JSON.GZ file with ALL chord data:
     - chords/VIDEO_ID.json.gz: chord timelines only (regular, harmonic, harmonicPlus, tuning)
       Capo transpositions and chord positions are generated client-side and cached in IndexedDB.
-    
+
     Args:
         video_id: YouTube video ID
         regular_file: Path to primary regular chords file or raw chord text
@@ -160,7 +172,8 @@ def save_chords_json(
         harmonic_file: Path to harmonic chords file or raw chord text
         harmonicplus_file: Path to harmonic+ chords file or raw chord text
         tuning_file: Path to tuning file or raw tuning value
-        
+        downbeats: Optional {"bpm", "meter", "beats"} payload from madmom
+
     Returns:
         str: output_file_path
     """
@@ -199,6 +212,10 @@ def save_chords_json(
     all_data['tuning'] = tuning_value
     all_data['hasNonStandardTuning'] = has_non_standard_tuning
     all_data['chordEngineVersion'] = chord_engine_version or "chordino-v1"
+
+    # Optional madmom beat/downbeat payload (packed as tp/m/b by _pack_chord_timelines)
+    if downbeats:
+        all_data['downbeats'] = downbeats
     read_seconds = time.perf_counter() - read_started_at
 
     all_chord_names = _extract_unique_chords_for_metrics(

@@ -18,9 +18,11 @@ from pydantic import BaseModel, Field
 
 from engine.convert_to_wav import convert_to_wav
 from engine.main import (
+    DOWNBEATS_ENABLED,
     REGULAR_ENGINE,
     get_last_process_timings,
     process_wav_file,
+    warm_madmom_downbeat_processor,
     warm_madmom_regular_processor,
 )
 
@@ -277,6 +279,8 @@ def startup_cleanup() -> None:
     cleanup_engine_temp()
     if REGULAR_ENGINE == "madmom" and not warm_madmom_regular_processor():
         raise RuntimeError("Madmom is configured but its DeepChroma models could not be loaded")
+    if DOWNBEATS_ENABLED and not warm_madmom_downbeat_processor():
+        print("Warning: downbeat detection is enabled but its models failed to load — jobs will skip it")
 
 
 @app.on_event("shutdown")
@@ -291,6 +295,7 @@ def health() -> dict:
         "service": "youchords-local",
         "version": "0.2.0",
         "regularEngine": REGULAR_ENGINE,
+        "downbeats": DOWNBEATS_ENABLED,
     }
 
 

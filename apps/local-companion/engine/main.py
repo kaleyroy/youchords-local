@@ -32,11 +32,21 @@ SONIC_ANNOTATOR_VERBOSE = os.environ.get("SONIC_ANNOTATOR_VERBOSE", "0").strip()
     "on",
 }
 REGULAR_ENGINE = os.environ.get("YOUCHORDS_REGULAR_ENGINE", "chordino").strip().lower()
+# Downbeat detection (madmom RNNDownBeat + DBN). Opt-out only; adds ~20-60s
+# of analysis time for a typical song.
+DOWNBEATS_ENABLED = os.environ.get("YOUCHORDS_DOWNBEATS", "1").strip().lower() not in {
+    "0",
+    "false",
+    "no",
+    "off",
+}
 LAST_PROCESS_TIMINGS = {}
 _MADMOM_PROCESSOR_LOCK = threading.Lock()
 _MADMOM_COMPAT_PATCHED = False
 _MADMOM_DEEP_CHROMA_PROCESSOR = None
 _MADMOM_CHORD_RECOGNITION_PROCESSOR = None
+_MADMOM_RNN_DOWNBEAT_PROCESSOR = None
+_MADMOM_DBN_DOWNBEAT_PROCESSOR = None
 _MADMOM_ROOT_RE = re.compile(r"^([A-G](?:#|b)?)(.*)$")
 _MADMOM_FLAT_TO_SHARP = {
     "Db": "C#",
@@ -71,6 +81,7 @@ def _print_process_timings(timings):
         f"wav_load_s={timings.get('wavLoadSeconds', 0):.3f} "
         f"tuning_s={timings.get('tuningSeconds', 0):.3f} "
         f"madmom_regular_s={timings.get('madmomRegularSeconds', 0):.3f} "
+        f"downbeat_s={timings.get('downbeatSeconds', 0):.3f} "
         f"regular_harmonic_s={timings.get('regularHarmonicSeconds', 0):.3f} "
         f"harmonic_plus_s={timings.get('harmonicPlusSeconds', 0):.3f} "
         f"save_json_s={timings.get('saveJsonSeconds', 0):.3f} "
@@ -371,6 +382,86 @@ def _patch_madmom_compat():
     _MADMOM_COMPAT_PATCHED = True
 
 
+def _patch_dbn_downbeat_numpy_compat():
+    """
+    madmom 0.16.1's DBNDownBeatTrackingProcessor.process picks the best HMM via
+    `np.argmax(np.asarray(results)[:, 1])`. With numpy >= 1.24 that asarray
+    raises (ragged array) because per-meter paths have different lengths.
+    Replace the method with a faithful copy that selects the highest log
+    probability by index instead.
+    """
+    import numpy as np
+    from madmom.features.downbeats import DBNDownBeatTrackingProcessor, _process_dbn
+
+    if getattr(DBNDownBeatTrackingProcessor, "_yc_numpy_compat", False):
+        return
+
+    def process(self, activations, **kwargs):
+        import itertools as it
+        # use only the activations > threshold (init offset to be added later)
+        first = 0
+        if self.threshold:
+            idx = np.nonzero(activations >= self.threshold)[0]
+            if idx.any():
+                first = max(first, np.min(idx))
+                last = min(len(activations), np.max(idx) + 1)
+            else:
+                last = first
+            activations = activations[first:last]
+        # return no beats if no activations given / remain after thresholding
+        if not activations.any():
+            return np.empty((0, 2))
+        # (parallel) decoding of the activations with HMM
+        results = list(self.map(_process_dbn, zip(self.hmms, it.repeat(activations))))
+        # numpy >= 1.24: per-meter paths differ in length, so np.asarray(results)
+        # is ragged — pick the best HMM (highest log probability) by index instead
+        best = max(range(len(results)), key=lambda i: results[i][1])
+        # the best path through the state space
+        path, _ = results[best]
+        # the state space and observation model of the best HMM
+        st = self.hmms[best].transition_model.state_space
+        om = self.hmms[best].observation_model
+        # the positions inside the pattern (0..num_beats)
+        positions = st.state_positions[path]
+        # corresponding beats (add 1 for natural counting)
+        beat_numbers = positions.astype(int) + 1
+        if self.correct:
+            beats = np.empty(0, dtype=int)
+            # for each detection determine the "beat range", i.e. states where
+            # the pointers of the observation model are >= 1
+            beat_range = om.pointers[path] >= 1
+            # get all change points between True and False (cast to int before)
+            idx = np.nonzero(np.diff(beat_range.astype(int)))[0] + 1
+            # if the first frame is in the beat range, add a change at frame 0
+            if beat_range[0]:
+                idx = np.r_[0, idx]
+            # if the last frame is in the beat range, append the length of the
+            # array
+            if beat_range[-1]:
+                idx = np.r_[idx, beat_range.size]
+            # iterate over all regions
+            if idx.any():
+                for left, right in idx.reshape((-1, 2)):
+                    # pick the frame with the highest activations value
+                    # Note: we look for both beats and down-beat activations;
+                    #       since np.argmax works on the flattened array, we
+                    #       need to divide by 2
+                    peak = np.argmax(activations[left:right]) // 2 + left
+                    beats = np.hstack((beats, peak))
+        else:
+            # transitions are the points where the beat numbers change
+            # FIXME: we might miss the first or last beat!
+            #        we could calculate the interval towards the beginning/end
+            #        to decide whether to include these points
+            beats = np.nonzero(np.diff(beat_numbers))[0] + 1
+        # return the beat positions (converted to seconds) and beat numbers
+        return np.vstack(((beats + first) / float(self.fps),
+                          beat_numbers[beats])).T
+
+    DBNDownBeatTrackingProcessor.process = process
+    DBNDownBeatTrackingProcessor._yc_numpy_compat = True
+
+
 def _madmom_processors_ready():
     return _MADMOM_DEEP_CHROMA_PROCESSOR is not None and _MADMOM_CHORD_RECOGNITION_PROCESSOR is not None
 
@@ -437,12 +528,134 @@ def extract_madmom_regular(wav_file):
         return None
 
 
+def _madmom_downbeat_processors_ready():
+    return _MADMOM_RNN_DOWNBEAT_PROCESSOR is not None and _MADMOM_DBN_DOWNBEAT_PROCESSOR is not None
+
+
+def _get_madmom_downbeat_processors():
+    global _MADMOM_RNN_DOWNBEAT_PROCESSOR, _MADMOM_DBN_DOWNBEAT_PROCESSOR
+
+    if _madmom_downbeat_processors_ready():
+        return _MADMOM_RNN_DOWNBEAT_PROCESSOR, _MADMOM_DBN_DOWNBEAT_PROCESSOR
+
+    with _MADMOM_PROCESSOR_LOCK:
+        if _madmom_downbeat_processors_ready():
+            return _MADMOM_RNN_DOWNBEAT_PROCESSOR, _MADMOM_DBN_DOWNBEAT_PROCESSOR
+
+        _patch_madmom_compat()
+        _patch_dbn_downbeat_numpy_compat()
+
+        from madmom.features.downbeats import RNNDownBeatProcessor, DBNDownBeatTrackingProcessor
+
+        _MADMOM_RNN_DOWNBEAT_PROCESSOR = RNNDownBeatProcessor()
+        # Meter search space [3, 4] covers most pop material; 6/8 songs fall
+        # back to the extension-side estimated grid (user picks Beats=6 there).
+        _MADMOM_DBN_DOWNBEAT_PROCESSOR = DBNDownBeatTrackingProcessor(
+            beats_per_bar=[3, 4], fps=100
+        )
+        return _MADMOM_RNN_DOWNBEAT_PROCESSOR, _MADMOM_DBN_DOWNBEAT_PROCESSOR
+
+
+def warm_madmom_downbeat_processor():
+    if not DOWNBEATS_ENABLED:
+        return False
+
+    started_at = time.perf_counter()
+    already_ready = _madmom_downbeat_processors_ready()
+    try:
+        _get_madmom_downbeat_processors()
+        print(
+            "[DownbeatWarmupTiming] "
+            f"ok=true reused={str(already_ready).lower()} "
+            f"seconds={_round_seconds(time.perf_counter() - started_at):.3f}"
+        )
+        return True
+    except Exception as e:
+        print(
+            "[DownbeatWarmupTiming] "
+            f"ok=false seconds={_round_seconds(time.perf_counter() - started_at):.3f} "
+            f"error={e}"
+        )
+        return False
+
+
+def _madmom_beats_to_downbeat_payload(beat_rows):
+    """
+    Convert DBN output rows [[time_s, position], ...] into the packed payload
+    {"bpm", "meter", "beats"}. Position 1 marks a downbeat.
+    Returns None when rows are unusable.
+    """
+    rows = [(float(t), int(p)) for t, p in beat_rows if float(t) >= 0 and int(p) >= 1]
+    if len(rows) < 4:
+        return None
+    rows.sort(key=lambda row: row[0])
+
+    # Meter: most common positions-per-bar count (positions cycle 1..meter).
+    bar_lengths = []
+    current_length = 0
+    for _, position in rows:
+        if position == 1:
+            if current_length > 0:
+                bar_lengths.append(current_length)
+            current_length = 1
+        else:
+            current_length += 1
+    if current_length > 0:
+        bar_lengths.append(current_length)
+    meter = int(statistics.mode(bar_lengths)) if bar_lengths else 4
+
+    # BPM: median inter-beat interval, guarded against decoder glitches.
+    intervals = [
+        rows[i][0] - rows[i - 1][0]
+        for i in range(1, len(rows))
+        if 0.2 <= rows[i][0] - rows[i - 1][0] <= 2.0
+    ]
+    if not intervals:
+        return None
+    bpm = round(60.0 / statistics.median(intervals), 1)
+
+    # Delta-encode like the chord timelines: "deltaMs.position".
+    parts = []
+    last_ms = 0
+    for time_s, position in rows:
+        time_ms = int(round(time_s * 1000))
+        parts.append(f"{time_ms - last_ms}.{position}")
+        last_ms = time_ms
+
+    return {"bpm": bpm, "meter": meter, "beats": ",".join(parts)}
+
+
+def extract_madmom_downbeats(wav_file):
+    """
+    Detect beats/downbeats with madmom RNNDownBeat + DBN tracking.
+    Returns {"bpm", "meter", "beats"} or None; failures never fail the job.
+    """
+    try:
+        rnn_processor, dbn_processor = _get_madmom_downbeat_processors()
+
+        print("Detecting DOWNBEATS with Madmom RNN+DBN...")
+        beat_rows = dbn_processor(rnn_processor(str(wav_file)))
+        payload = _madmom_beats_to_downbeat_payload(beat_rows)
+        if payload:
+            beat_count = len(payload["beats"].split(","))
+            print(
+                f"Madmom DOWNBEATS: {beat_count} beats, "
+                f"{payload['bpm']} BPM, meter {payload['meter']}"
+            )
+        else:
+            print("Madmom DOWNBEATS: not enough stable beats — skipped")
+        return payload
+    except Exception as e:
+        print(f"Madmom DOWNBEATS error: {e}")
+        return None
+
+
 def process_wav_file(wav_file):
     """
     Process a WAV file sequentially.
     Loads the WAV file once and reuses the data for Tuning and Harmonic+.
     
-    Order: Tuning → optional Madmom Regular → Chordino Regular+/Harmonic → Harmonic+ → Compress
+    Order: Tuning → optional Madmom Regular → optional Madmom Downbeats → Chordino Regular+/Harmonic → Harmonic+ → Compress
     """
     total_started_at = time.perf_counter()
     timings = {}
@@ -465,7 +678,7 @@ def process_wav_file(wav_file):
     print(f"WAV loaded: {len(data)} samples, {rate}Hz")
     
     # 1. TUNING detection using VAMP NNLS-Chroma tuning plugin
-    print("\n[1/5] Extracting TUNING...")
+    print("\n[1/6] Extracting TUNING...")
     tuning_started_at = time.perf_counter()
     tuning_value = "440.00"
     try:
@@ -482,7 +695,7 @@ def process_wav_file(wav_file):
     timings["tuningSeconds"] = _round_seconds(time.perf_counter() - tuning_started_at)
     
     # 2. Optional MADMOM REGULAR (primary R in staging)
-    print("\n[2/5] Extracting PRIMARY REGULAR...")
+    print("\n[2/6] Extracting PRIMARY REGULAR...")
     madmom_started_at = time.perf_counter()
     madmom_regular_text = None
     regular_engine_version = "chordino-v1"
@@ -494,14 +707,24 @@ def process_wav_file(wav_file):
         print(f"Primary REGULAR engine: Chordino (YOUCHORDS_REGULAR_ENGINE={REGULAR_ENGINE or 'chordino'})")
     timings["madmomRegularSeconds"] = _round_seconds(time.perf_counter() - madmom_started_at)
 
-    # 3. REGULAR+ + HARMONIC (sonic-annotator)
-    print("\n[3/5] Extracting REGULAR+ + HARMONIC...")
+    # 3. Optional MADMOM DOWNBEATS (measure-view timing source)
+    print("\n[3/6] Detecting DOWNBEATS...")
+    downbeat_started_at = time.perf_counter()
+    downbeat_payload = None
+    if DOWNBEATS_ENABLED:
+        downbeat_payload = extract_madmom_downbeats(wav_file)
+    else:
+        print("Downbeat detection disabled (YOUCHORDS_DOWNBEATS=0)")
+    timings["downbeatSeconds"] = _round_seconds(time.perf_counter() - downbeat_started_at)
+
+    # 4. REGULAR+ + HARMONIC (sonic-annotator)
+    print("\n[4/6] Extracting REGULAR+ + HARMONIC...")
     regular_harmonic_started_at = time.perf_counter()
     harmonic_chord_file, regular_chord_file = extract_regular_harmonic(wav_file)
     timings["regularHarmonicSeconds"] = _round_seconds(time.perf_counter() - regular_harmonic_started_at)
     
-    # 4. HARMONIC+ (using pre-loaded data)
-    print("\n[4/5] Extracting HARMONIC+...")
+    # 5. HARMONIC+ (using pre-loaded data)
+    print("\n[5/6] Extracting HARMONIC+...")
     harmonicplus_started_at = time.perf_counter()
     harmonicplus_chord_text = None
     try:
@@ -548,9 +771,9 @@ def process_wav_file(wav_file):
         print(f"HARMONIC+ error: {e}")
     timings["harmonicPlusSeconds"] = _round_seconds(time.perf_counter() - harmonicplus_started_at)
     
-    # 5. Save as JSON.GZ
-    print("\n[5/5] Saving to JSON.GZ...")
-    
+    # 6. Save as JSON.GZ
+    print("\n[6/6] Saving to JSON.GZ...")
+
     primary_regular_text = madmom_regular_text or harmonic_chord_file
     regularplus_chord_text = harmonic_chord_file
     if not madmom_regular_text and REGULAR_ENGINE == "madmom":
@@ -568,6 +791,7 @@ def process_wav_file(wav_file):
                 tuning_value,
                 regularplus_file=regularplus_chord_text,
                 chord_engine_version=regular_engine_version,
+                downbeats=downbeat_payload,
             )
             timings["saveJsonWrapperSeconds"] = _round_seconds(time.perf_counter() - save_started_at)
             try:
