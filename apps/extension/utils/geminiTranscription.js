@@ -32,6 +32,14 @@ const PAID_GEMINI_MODELS = new Set([
   'gemini-3.1-pro-preview-customtools'
 ]);
 
+// 🎯 转写增强要求:段落标记行 + 逐词时间(小节视图分段与精确词时间轴用)
+const PROMPT_SECTION_MARKERS =
+  ' When the song changes section (intro, verse, pre-chorus, chorus, bridge, instrumental, outro), output a standalone subtitle line containing ONLY the section label in square brackets (e.g. [Intro], [Verse 1], [Chorus], [Bridge], [Outro]) with a short 1-2 second duration timed exactly at the section start.';
+const PROMPT_WORD_TIMINGS_SRT =
+  ' For EVERY subtitle line also provide a "words" array: word-level timing where each item is {"text","start","end"} in the SAME SRT timestamp format, covering that word\'s exact spoken interval; for sustained notes (e.g. a held "oh") extend the word\'s end to when the sustain actually finishes.';
+const PROMPT_WORD_TIMINGS_DECIMAL =
+  ' For EVERY subtitle line also provide a "words" array: word-level timing where each item is {"text","start","end"} in the SAME decimal-seconds format, covering that word\'s exact spoken interval; for sustained notes (e.g. a held "oh") extend the word\'s end to when the sustain actually finishes.';
+
 function normalizeGeminiModelSelection(modelId, { allowGlobal = false, allowPaidModels = false } = {}) {
   if (!modelId || typeof modelId !== 'string') {
     return allowGlobal ? MODEL_MODE_GLOBAL : DEFAULT_GEMINI_MODEL;
@@ -314,7 +322,7 @@ async function fetchGeminiTranscription(videoUrl, apiKey, forcePromptType = null
     if (forcePromptType === 'default') {
       // 🔒 Force default prompt (for multi-prompt scenarios)
       activePromptId = 'default';
-      promptText = 'Transcribe ONLY the audio (spoken and sung words). Ignore all visual content, text on screen, and images. Extract speech from audio track only. CRITICAL: Use SRT timestamp format (HH:MM:SS,mmm) for ALL timestamps. Example: 00:01:23,456 means 1 minute, 23 seconds, and 456 milliseconds.';
+      promptText = 'Transcribe ONLY the audio (spoken and sung words). Ignore all visual content, text on screen, and images. Extract speech from audio track only. CRITICAL: Use SRT timestamp format (HH:MM:SS,mmm) for ALL timestamps. Example: 00:01:23,456 means 1 minute, 23 seconds, and 456 milliseconds.' + PROMPT_SECTION_MARKERS + PROMPT_WORD_TIMINGS_SRT;
       isCustomPrompt = false;
       useVideoAnalysis = false;
       if (DEBUG_GEMINI) console.log('[Gemini] 🎯 Forced default prompt with JSON Schema');
@@ -396,7 +404,7 @@ async function fetchGeminiTranscription(videoUrl, apiKey, forcePromptType = null
           console.log('[Gemini] 📖 URL Context:', useUrlContext ? 'ENABLED' : 'DISABLED');
         } else {
           console.warn('[Gemini] ⚠️ Custom prompt not found, using default');
-          promptText = 'Transcribe ONLY the audio (spoken and sung words). Ignore all visual content, text on screen, and images. Extract speech from audio track only. CRITICAL: Use absolute decimal seconds for ALL timestamps (e.g., 12.5, 62.5, 125.3). Do NOT use HH:MM:SS or MM:SS format.';
+          promptText = 'Transcribe ONLY the audio (spoken and sung words). Ignore all visual content, text on screen, and images. Extract speech from audio track only. CRITICAL: Use absolute decimal seconds for ALL timestamps (e.g., 12.5, 62.5, 125.3). Do NOT use HH:MM:SS or MM:SS format.' + PROMPT_SECTION_MARKERS + PROMPT_WORD_TIMINGS_DECIMAL;
           isCustomPrompt = false;
           isTranscriptBasedCustomPrompt = false;
           useVideoAnalysis = false;
@@ -404,7 +412,7 @@ async function fetchGeminiTranscription(videoUrl, apiKey, forcePromptType = null
         }
       } else {
         console.warn('[Gemini] ⚠️ No custom prompt selected, using default');
-        promptText = 'Transcribe ONLY the audio (spoken and sung words). Ignore all visual content, text on screen, and images. Extract speech from audio track only. CRITICAL: Use absolute decimal seconds for ALL timestamps (e.g., 12.5, 62.5, 125.3). Do NOT use HH:MM:SS or MM:SS format.';
+        promptText = 'Transcribe ONLY the audio (spoken and sung words). Ignore all visual content, text on screen, and images. Extract speech from audio track only. CRITICAL: Use absolute decimal seconds for ALL timestamps (e.g., 12.5, 62.5, 125.3). Do NOT use HH:MM:SS or MM:SS format.' + PROMPT_SECTION_MARKERS + PROMPT_WORD_TIMINGS_DECIMAL;
         isCustomPrompt = false;
         isTranscriptBasedCustomPrompt = false;
         useVideoAnalysis = false;
@@ -414,7 +422,7 @@ async function fetchGeminiTranscription(videoUrl, apiKey, forcePromptType = null
       // 🔒 Auto-detect based on user selection (original behavior)
       if (showDefault && !selectedCustomPromptId) {
         activePromptId = 'default';
-        promptText = 'Transcribe ONLY the audio (spoken and sung words). Ignore all visual content, text on screen, and images. Extract speech from audio track only. CRITICAL: Use SRT timestamp format (HH:MM:SS,mmm) for ALL timestamps. Example: 00:01:23,456 means 1 minute, 23 seconds, and 456 milliseconds.';
+        promptText = 'Transcribe ONLY the audio (spoken and sung words). Ignore all visual content, text on screen, and images. Extract speech from audio track only. CRITICAL: Use SRT timestamp format (HH:MM:SS,mmm) for ALL timestamps. Example: 00:01:23,456 means 1 minute, 23 seconds, and 456 milliseconds.' + PROMPT_SECTION_MARKERS + PROMPT_WORD_TIMINGS_SRT;
         isCustomPrompt = false;
         isTranscriptBasedCustomPrompt = false;
         useVideoAnalysis = false;
@@ -465,7 +473,7 @@ async function fetchGeminiTranscription(videoUrl, apiKey, forcePromptType = null
           useTranscriptBased = false;
         }
       } else {
-        promptText = 'Transcribe ONLY the audio (spoken and sung words). Ignore all visual content, text on screen, and images. Extract speech from audio track only. CRITICAL: Use absolute decimal seconds for ALL timestamps (e.g., 12.5, 62.5, 125.3). Do NOT use HH:MM:SS or MM:SS format.';
+        promptText = 'Transcribe ONLY the audio (spoken and sung words). Ignore all visual content, text on screen, and images. Extract speech from audio track only. CRITICAL: Use absolute decimal seconds for ALL timestamps (e.g., 12.5, 62.5, 125.3). Do NOT use HH:MM:SS or MM:SS format.' + PROMPT_SECTION_MARKERS + PROMPT_WORD_TIMINGS_DECIMAL;
         isCustomPrompt = false;
         isTranscriptBasedCustomPrompt = false;
         useVideoAnalysis = false;
@@ -729,6 +737,28 @@ async function fetchGeminiTranscription(videoUrl, apiKey, forcePromptType = null
                 text: {
                   type: "string",
                   description: "The exact spoken or sung words"
+                },
+                words: {
+                  type: "array",
+                  description: "Optional word-level timings for this line. Include when possible; extend the end of sustained notes to when the sustain finishes.",
+                  items: {
+                    type: "object",
+                    properties: {
+                      text: {
+                        type: "string",
+                        description: "The single word"
+                      },
+                      start: {
+                        type: "string",
+                        description: "Word start time in SRT format (HH:MM:SS,mmm)"
+                      },
+                      end: {
+                        type: "string",
+                        description: "Word end time in SRT format (HH:MM:SS,mmm)"
+                      }
+                    },
+                    required: ["text", "start", "end"]
+                  }
                 }
               },
               required: ["start", "end", "text"]
@@ -742,7 +772,16 @@ async function fetchGeminiTranscription(videoUrl, apiKey, forcePromptType = null
             {
               start: "00:00:07,500",
               end: "00:00:11,000",
-              text: "Hello world"
+              text: "Hello world",
+              words: [
+                { text: "Hello", start: "00:00:07,500", end: "00:00:08,700" },
+                { text: "world", start: "00:00:08,900", end: "00:00:10,200" }
+              ]
+            },
+            {
+              start: "00:01:00,500",
+              end: "00:01:02,000",
+              text: "[Chorus]"
             },
             {
               start: "00:01:00,500",
@@ -1163,11 +1202,31 @@ async function fetchGeminiTranscription(videoUrl, apiKey, forcePromptType = null
         });
         return null;
       }
-      
+
+      // 🆕 逐词时间透传(SRT 串 → 秒);无效条目丢弃,全空则省略 words
+      let words = null;
+      if (Array.isArray(sub.words)) {
+        const convertedWords = sub.words
+          .map((w) => {
+            if (!w || typeof w.text !== 'string' || !w.text.trim()) return null;
+            const ws = convertTime(w.start, timeFormat);
+            const we = convertTime(w.end, timeFormat);
+            if (!Number.isFinite(ws) || !Number.isFinite(we) || we < ws) return null;
+            return {
+              text: w.text.trim(),
+              start: Math.round(ws * 100) / 100,
+              end: Math.round(Math.max(we, ws + 0.05) * 100) / 100
+            };
+          })
+          .filter(Boolean);
+        if (convertedWords.length) words = convertedWords;
+      }
+
       return {
         start: Math.round(startTime * 100) / 100,
         end: Math.round(endTime * 100) / 100,
-        text: text
+        text: text,
+        ...(words ? { words } : {})
       };
     }).filter(Boolean);
 

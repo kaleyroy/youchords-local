@@ -13,7 +13,7 @@
 // ───────────────────────────────────────────────
 // 0. 常量与状态
 // ───────────────────────────────────────────────
-const DEFAULT_SETTINGS = { bpm: 120, beatsPerBar: 4, offset: 0, source: 'auto' };
+const DEFAULT_SETTINGS = { bpm: 120, beatsPerBar: 4, offset: 0, source: 'auto', sections: true };
 const BPM_MIN = 40;
 const BPM_MAX = 240;
 const VALID_BEATS = [3, 4, 6];
@@ -37,10 +37,12 @@ const state = {
   beatsData: null,           // 管线下发 { bpm, meter, beats:[{time,pos}] };旧缓存为 null
   pipeline: null,            // 构建时缓存 { info:{beats,meter,bpm}|null, mode:'pipeline'|'inferred' }
   measures: [],              // [{ n, start, chordSlots[beat][], words[] }]
+  sections: [],              // [{ name, time }] 段落时间轴,已排序(真实标记优先,元数据兜底)
   // 高亮缓存(索引未变则不碰 DOM)
   lastMeasureIdx: null,
   lastWordIdx: null,
   lastChordIdx: null,
+  lastSectionIdx: null,
   lastScrollMeasureIdx: null,
   // 基础设施
   saveTimer: null,
@@ -174,6 +176,7 @@ function normalizeSettings(raw) {
     beatsPerBar: VALID_BEATS.includes(beats) ? beats : DEFAULT_SETTINGS.beatsPerBar,
     offset: Number.isFinite(offset) ? offset : DEFAULT_SETTINGS.offset,
     source: VALID_SOURCES.includes(source) ? source : DEFAULT_SETTINGS.source,
+    sections: raw?.sections !== false,   // 旧存档缺 key → 默认开
   };
 }
 
@@ -246,10 +249,11 @@ function extractData(combinedData, authoritativeChords) {
   }
   chords.sort((a, b) => a.time - b.time);
 
-  // 歌词词:跳过 chordGap 空占位
+  // 歌词词:跳过 chordGap 空占位;段落标记行([Bridge] 等)的词不进格子,由段落头呈现
   const words = [];
   if (Array.isArray(combinedData)) {
     for (const line of combinedData) {
+      if (line?.isSectionMarker) continue;
       for (const w of (line?.words || [])) {
         const text = String(w?.word || w?.text || '').trim();
         const start = Number(w?.start);
@@ -261,7 +265,84 @@ function extractData(combinedData, authoritativeChords) {
     }
   }
   words.sort((a, b) => a.start - b.start);
-  return { chords, words };
+  return { chords, words, sections: extractSections(combinedData) };
+}
+
+// 4c. 段落时间轴:真实标记([Bridge] 等)优先,合成 instrumental 段([Intro] 等)并入;
+// 无真实标记时按 Verse/Chorus 元数据兜底分段
+function parseInstrumentalName(text) {
+  const m = String(text || '').trim().match(/^\[\s*(.+?)\s*\]$/);
+  return m ? m[1].trim() : null;   // "[Intro]" → "Intro"
+}
+
+function extractSections(combinedData) {
+  if (!Array.isArray(combinedData) || !combinedData.length) return [];
+  const markers = [];
+  const instrumental = [];
+  for (const line of combinedData) {
+    if (!line || !Number.isFinite(Number(line.start))) continue;
+    if (line.isSectionMarker && line.markerName) {
+      markers.push({ name: String(line.markerName), time: Number(line.start) });
+    } else if (line.isInstrumental && line.text) {
+      const name = parseInstrumentalName(line.text);
+      if (name) instrumental.push({ name, time: Number(line.start) });
+    }
+  }
+  markers.sort((a, b) => a.time - b.time);
+
+  if (markers.length) {
+    // 合成段并入:与真实标记近同名(±2.5s)或时间几乎重合(±1.5s)时丢弃,保留真实标记
+    const merged = [...markers];
+    for (const s of instrumental) {
+      const dup = merged.some(
+        (m) => Math.abs(m.time - s.time) <= 1.5 || (m.name === s.name && Math.abs(m.time - s.time) <= 2.5)
+      );
+      if (!dup) merged.push(s);
+    }
+    merged.sort((a, b) => a.time - b.time);
+    return merged;
+  }
+
+  return deriveSectionsFromMetadata(combinedData);
+}
+
+// 兜底:字幕无任何真实标记(常见于自动生成字幕)时,按行元数据分段——
+// isInstrumental → 其标签 / isChorus → Chorus / verseNumber → Verse N,归并连续同标签
+function deriveSectionsFromMetadata(lines) {
+  const sections = [];
+  let label = null;
+  for (const line of lines) {
+    if (!line || !Number.isFinite(Number(line.start))) continue;
+    if (line.isSectionMarker) continue;
+    let cur = null;
+    if (line.isInstrumental && line.text) {
+      cur = parseInstrumentalName(line.text) || 'Instrumental';
+    } else if (line.isChorus) {
+      cur = 'Chorus';
+    } else if (Number.isInteger(line.verseNumber) && line.verseNumber > 0) {
+      cur = `Verse ${line.verseNumber}`;
+    }
+    if (!cur || cur === label) continue;
+    sections.push({ name: cur, time: Number(line.start) });
+    label = cur;
+  }
+  // 少于 2 个不同段名 → 分段无意义
+  const distinct = new Set(sections.map((s) => s.name));
+  if (distinct.size < 2) return [];
+
+  // 🎯 Bridge 启发式:「Verse N」全曲恰好出现一次、且按时间前后都存在 Chorus 段的候选中,
+  // 只把最后一个改标 Bridge(经典结构 Bridge 出现在最后一个 Verse→Chorus 循环之后)
+  const counts = {};
+  for (const s of sections) counts[s.name] = (counts[s.name] || 0) + 1;
+  let bridgeIdx = -1;
+  sections.forEach((s, i) => {
+    if (!/^Verse \d+$/.test(s.name) || counts[s.name] !== 1) return;
+    const chorusBefore = sections.slice(0, i).some((x) => x.name === 'Chorus');
+    const chorusAfter = sections.slice(i + 1).some((x) => x.name === 'Chorus');
+    if (chorusBefore && chorusAfter) bridgeIdx = i;
+  });
+  if (bridgeIdx >= 0) sections[bridgeIdx].name = 'Bridge';
+  return sections;
 }
 
 // 4b. 和弦库兜底源(与 chordsDisplay._parseChordText 同格式 "t:name,t:name,…")
@@ -320,6 +401,41 @@ function buildMeasures() {
     buildMeasuresFromDownbeats(state.pipeline.info);
   } else {
     buildUniformMeasures();
+  }
+  applyHeldWords();
+}
+
+// 🎯 长音填格:某词与下一词相隔 ≥2 小节时,中间空小节用淡化该词填充
+// (表达拖长音/间奏停留,如 "oh" 持续两小节);启用段落头时遇段落边界即停,不跨段
+function applyHeldWords() {
+  if (!state.measures.length || !state.words.length) return;
+  const showSections = state.settings.sections !== false && state.sections.length > 0;
+
+  // wi → 小节号(words 已按 start 排序,wi 顺序即时间顺序)
+  const wiToN = new Map();
+  for (const m of state.measures) {
+    for (const w of m.words) {
+      if (Number.isInteger(w.wi)) wiToN.set(w.wi, m.n);
+    }
+  }
+  const placed = [...wiToN.entries()].sort((a, b) => a[0] - b[0]);
+
+  for (let k = 0; k < placed.length - 1; k++) {
+    const [wi, n] = placed[k];
+    const [, nextN] = placed[k + 1];
+    if (nextN - n < 2) continue;
+    const word = state.words[wi]?.word;
+    if (!word) continue;
+    const secN = showSections ? binarySearchLast(state.sections, state.measures[n].start, 'time') : -1;
+    let fills = 0;
+    for (let m = n + 1; m < nextN && fills < 3; m++) {
+      if (showSections) {
+        const sIdx = binarySearchLast(state.sections, state.measures[m].start, 'time');
+        if (sIdx > secN) break;   // 不跨段落填充
+      }
+      state.measures[m].words.push({ word, held: true });
+      fills++;
+    }
   }
 }
 
@@ -464,6 +580,7 @@ function buildToolbarHtml() {
           <option value="6"${beatsVal === 6 ? ' selected' : ''}>6</option>
         </select>
       </label>
+      <button class="yc-m-tb-btn yc-m-sections-toggle${s.sections !== false ? ' yc-m-on' : ''}" title="Toggle section headers">Sections</button>
       <span class="yc-m-tb-item">Offset
         <button class="yc-m-tb-btn yc-m-offset-minus" title="Shift grid 0.5s earlier">−0.5</button>
         <span class="yc-m-offset-val">${s.offset.toFixed(1)}s</span>
@@ -494,7 +611,18 @@ function renderView() {
   let html = '<div class="yc-measure-view">';
   html += buildToolbarHtml();
   html += `<div class="yc-m-grid">`;
+  const showSections = state.settings.sections !== false && state.sections.length > 0;
+  let lastSectionIdx = -1;
   for (const m of state.measures) {
+    // 段落边界(通栏头):小节所属段落与上一小节不同时插入
+    if (showSections) {
+      const sIdx = binarySearchLast(state.sections, m.start, 'time');
+      if (sIdx >= 0 && sIdx !== lastSectionIdx) {
+        const s = state.sections[sIdx];
+        html += `<div class="yc-m-section" data-si="${sIdx}">${escapeHtml(s.name)}</div>`;
+        lastSectionIdx = sIdx;
+      }
+    }
     // 槽位数取每小节实际值(推算版恒等于 beatsPerBar;管线版容忍检测抖动)
     const slots = m.chordSlots.length;
     html += `<div class="yc-m-box" data-n="${m.n}" data-start="${m.start.toFixed(3)}">`;
@@ -510,6 +638,11 @@ function renderView() {
     html += '</div>';
     html += '<div class="yc-m-words">';
     for (const w of m.words) {
+      // 长音填格:淡化的持续词,不参与点击与高亮
+      if (w.held) {
+        html += `<span class="yc-m-word yc-m-word-held">${escapeHtml(w.word)}</span> `;
+        continue;
+      }
       // 词间必须留空白:纯 inline span 连续拼接无换行点,整节歌词会单行溢出
       html += `<span class="yc-m-word" data-wi="${w.wi}" data-time="${w.start.toFixed(3)}">${escapeHtml(w.word)}</span> `;
     }
@@ -529,6 +662,7 @@ function resetHighlightCache() {
   state.lastMeasureIdx = null;
   state.lastWordIdx = null;
   state.lastChordIdx = null;
+  state.lastSectionIdx = null;
   state.lastScrollMeasureIdx = null;
 }
 
@@ -625,6 +759,12 @@ function bindToolbar(container) {
   });
   root.querySelector('.yc-m-beats-select')?.addEventListener('change', (e) => {
     setBeats(parseInt(e.target.value, 10));
+  });
+  root.querySelector('.yc-m-sections-toggle')?.addEventListener('click', (e) => {
+    state.settings.sections = state.settings.sections === false;
+    scheduleSave();
+    rebuildAndRender();
+    e.currentTarget?.classList?.toggle('yc-m-on', state.settings.sections !== false);
   });
   root.querySelector('.yc-m-src-select')?.addEventListener('change', (e) => {
     setSource(e.target.value);
@@ -726,6 +866,19 @@ function updateHighlight(currentTime) {
     state.lastChordIdx = cIdx;
   }
 
+  // 段落头高亮(播放时间落段内;段落头未渲染时静默跳过)
+  if (state.sections.length) {
+    const sIdx = binarySearchLast(state.sections, currentTime, 'time');
+    if (sIdx !== state.lastSectionIdx) {
+      grid.querySelectorAll('.yc-m-section.yc-m-active').forEach((el) => el.classList.remove('yc-m-active'));
+      if (sIdx >= 0) {
+        const el = grid.querySelector(`.yc-m-section[data-si="${sIdx}"]`);
+        if (el) el.classList.add('yc-m-active');
+      }
+      state.lastSectionIdx = sIdx;
+    }
+  }
+
   // 补发预览面板时间事件(原逻辑在 updateLyricsChordsHighlight 尾部,被本视图提前 return 跳过)
   if (window.ycChordsPreviewPanel?.isVisible) {
     window.dispatchEvent(
@@ -777,6 +930,7 @@ function attachGlobalListenersOnce() {
     state.container = null;
     state.chords = [];
     state.words = [];
+    state.sections = [];
     state.beatsData = null;
     state.pipeline = null;
     state.measures = [];
@@ -805,6 +959,7 @@ function onContentRendered(combinedData, authoritativeChords, container) {
   const data = extractData(combinedData, authoritativeChords);
   state.chords = data.chords;
   state.words = data.words;
+  state.sections = data.sections;
   state.beatsData = window.chordsDisplay?.currentSongData?.beatsData || null;
 
   attachGlobalListenersOnce();
@@ -964,6 +1119,20 @@ function ensureCss() {
     .yc-m-src-hint .yc-m-reanalyze:disabled { opacity: 0.5; cursor: default; }
 
     .yc-m-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+    /* 段落头:通栏分隔,随播放高亮 */
+    .yc-m-section {
+      grid-column: 1 / -1;
+      display: flex; align-items: center; gap: 8px;
+      margin-top: 6px; padding: 2px 2px 0;
+      font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
+      text-transform: uppercase; opacity: 0.7;
+    }
+    .yc-m-section::after {
+      content: ""; flex: 1; height: 1px;
+      background: currentColor; opacity: 0.25;
+    }
+    .yc-m-section.yc-m-active { opacity: 1; color: #3ea6ff; }
+    .yc-m-tb-btn.yc-m-on { border-color: #3ea6ff; color: #3ea6ff; }
     .yc-m-box {
       position: relative; min-height: 52px;
       border: 1px solid rgba(255,255,255,0.22); border-radius: 6px;
@@ -987,6 +1156,9 @@ function ensureCss() {
     }
     .yc-m-word { cursor: pointer; border-radius: 3px; padding: 0 1px; }
     .yc-m-word:hover { background: rgba(127,127,127,0.25); }
+    /* 长音填格:淡化的持续词 */
+    .yc-m-word.yc-m-word-held { opacity: 0.45; cursor: default; }
+    .yc-m-word.yc-m-word-held:hover { background: transparent; }
     .yc-m-word.yc-m-active { color: #3ea6ff; font-weight: 600; }
     .yc-m-box.yc-m-active { border-color: #3ea6ff; box-shadow: inset 0 0 0 1px #3ea6ff; }
     .yc-m-empty { padding: 24px; text-align: center; opacity: 0.6; }
@@ -1012,6 +1184,12 @@ function ensureCss() {
     .yt-lyrics-chords-panel.light-theme .yc-m-box { border-color: rgba(0,0,0,0.22); }
     .yt-lyrics-chords-panel.sepia-theme .yc-m-word.yc-m-active,
     .yt-lyrics-chords-panel.light-theme .yc-m-word.yc-m-active { color: #1e6fd9; }
+    .yt-lyrics-chords-panel.sepia-theme .yc-m-section.yc-m-active,
+    .yt-lyrics-chords-panel.light-theme .yc-m-section.yc-m-active,
+    .yt-lyrics-chords-panel.sepia-theme .yc-m-tb-btn.yc-m-on,
+    .yt-lyrics-chords-panel.light-theme .yc-m-tb-btn.yc-m-on { color: #1e6fd9; }
+    .yt-lyrics-chords-panel.sepia-theme .yc-m-tb-btn.yc-m-on,
+    .yt-lyrics-chords-panel.light-theme .yc-m-tb-btn.yc-m-on { border-color: #1e6fd9; }
   `;
   document.head.appendChild(style);
   state.cssInjected = true;

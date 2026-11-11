@@ -4820,6 +4820,10 @@ if (window.ycLyricsChordsInit) {
         html += `<div class="lyrics-chords-block" data-block="${blockIndex}">`;
 
         block.forEach((line, lineIndex) => {
+          // 🎯 段落标记行([Bridge] 等)不在默认视图渲染——由小节视图的段落头呈现,
+          // 避免以小写 [bridge] 歌词行形式混入;合成 instrumental 标签行([Intro] 等)保留原渲染
+          if (line.isSectionMarker && !line.isInstrumental) return;
+
           // 🎵 הוספת class לפזמון ובית (זמני - לבדיקה)
           const chorusClass = line.isChorus ? " chorus-line" : "";
           const verseClass = line.verseNumber ? ` verse-${line.verseNumber}` : "";
@@ -7201,6 +7205,160 @@ if (window.ycLyricsChordsInit) {
   /*------------------------------------------------------------
   13. שילוב נתוני מילים ואקורדים
 ------------------------------------------------------------*/
+  /*------------------------------------------------------------
+    13b. 段落标记([Bridge]/[Verse 1] 等)识别与恢复
+    YouTube 词级路径在 cleanWordText 丢弃纯方括号段;这里从
+    originalSentences 原始句恢复,并给句子级(Gemini)路径已存在的
+    标记行打标。仅打标不改渲染:默认视图行为不变,小节视图按
+    isSectionMarker / isInstrumental 分段。
+  ------------------------------------------------------------*/
+  const SECTION_MARKER_KEYWORDS = [
+    "intro", "verse", "pre-chorus", "prechorus", "pre chorus", "chorus",
+    "bridge", "hook", "refrain", "interlude", "instrumental", "solo",
+    "outro", "coda", "breakdown", "drop", "build-up", "buildup", "build up",
+    "lift", "tag", "fade-out", "fadeout", "fade out",
+  ];
+
+  // 整体匹配 "[<白名单词> [编号]]" → 规范化名称(Bridge / Verse 1 …);非白名单返回 null
+  function parseSectionMarker(rawText) {
+    if (!rawText || typeof rawText !== "string") return null;
+    const m = rawText.trim().match(/^\[\s*(.+?)\s*\]$/);
+    if (!m) return null;
+    const inner = m[1]
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .replace(/[:：]+$/, "")
+      .trim();
+    if (!inner) return null;
+    const hit = SECTION_MARKER_KEYWORDS.find(
+      (kw) => inner === kw || inner.startsWith(kw + " ")
+    );
+    if (!hit) return null;
+    const name = hit.replace(/\b\w/g, (c) => c.toUpperCase());
+    const numMatch = inner.slice(hit.length).trim().match(/^(\d+)/);
+    return numMatch ? `${name} ${numMatch[1]}` : name;
+  }
+
+  // 打标:Pass 1 给已存在的标记行(Gemini 句子路径)打标;
+  // Pass 2 从 originalSentences(支持多源列表)恢复被 cleanWordText 过滤的标记(YouTube 词级路径)
+  function tagSectionMarkers(lines, originalSentencesLists) {
+    if (!Array.isArray(lines) || !lines.length) return lines;
+
+    for (const line of lines) {
+      const name = parseSectionMarker(String(line?.text || "").trim());
+      if (name) {
+        line.isSectionMarker = true;
+        line.markerName = name;
+      }
+    }
+
+    // 兼容单列表与多列表(resolver 的 originalSentences 是清洗版,原始记录字段需额外并入)
+    const lists =
+      Array.isArray(originalSentencesLists) && Array.isArray(originalSentencesLists[0])
+        ? originalSentencesLists
+        : [originalSentencesLists];
+
+    const insertions = [];
+    for (const list of lists) {
+      if (!Array.isArray(list) || !list.length) continue;
+      for (const s of list) {
+        const name = parseSectionMarker(String(s?.text || "").trim());
+        const start = Number(s?.startTime ?? s?.start);
+        if (!name || !Number.isFinite(start)) continue;
+        // ±1.5s 内已有标记行(含本批待插入)→ 密集重复,跳过
+        const markerNear =
+          lines.some(
+            (l) => l?.isSectionMarker && Number.isFinite(l.start) && Math.abs(l.start - start) <= 1.5
+          ) || insertions.some((m) => Math.abs(m.start - start) <= 1.5);
+        // 与合成 instrumental 段([Intro] 等)近同名 → 保留合成段(带和弦),不重复
+        const instrumentalDup = lines.some(
+          (l) =>
+            l?.isInstrumental &&
+            Number.isFinite(l.start) &&
+            Math.abs(l.start - start) <= 2.5 &&
+            parseSectionMarker(String(l.text || "").trim()) === name
+        );
+        if (markerNear || instrumentalDup) continue;
+        const end = Number(s?.endTime ?? s?.end);
+        insertions.push({
+          start,
+          end: Number.isFinite(end) && end > start ? end : start,
+          text: String(s.text).trim(),
+          name,
+        });
+      }
+    }
+    if (insertions.length) {
+      for (const ins of insertions) {
+        lines.push({
+          start: ins.start,
+          end: ins.end,
+          words: [],
+          chords: [],
+          text: ins.text,
+          isSectionMarker: true,
+          markerName: ins.name,
+        });
+      }
+      lines.sort((a, b) => a.start - b.start);
+      console.log(
+        "[LyricsChords] 🎯 恢复段落标记:",
+        insertions.map((i) => `${i.name}@${i.start.toFixed(1)}s`).join(", ")
+      );
+    }
+    return lines;
+  }
+
+  // 🆕 词时间重映射:用逐词真实时间(json3 tOffsetMs / Gemini words)替换句内均匀估算。
+  // 匹配规则与 parseSRT 准确词匹配一致:顺序游标 + 去标点小写包含匹配 + 行时间窗容差;
+  // 匹配率 <50% 视为脏数据整体放弃。
+  function remapWordsToTimings(lines, wordTimings) {
+    if (!Array.isArray(lines) || !Array.isArray(wordTimings) || wordTimings.length < 10) return false;
+    const norm = (t) => String(t || "").replace(/[.,!?;:'"()[\]]/g, "").toLowerCase();
+    let cursor = 0;
+    let matched = 0;
+    let total = 0;
+    const updates = [];   // [line, wordIndex, timing] 延迟应用(匹配率达标才生效)
+    for (const line of lines) {
+      if (!line || !Array.isArray(line.words) || !line.words.length) continue;
+      if (line.isSectionMarker) continue;
+      for (let i = 0; i < line.words.length; i++) {
+        const word = line.words[i];
+        total++;
+        const wText = norm(word.word);
+        if (!wText) continue;
+        for (let j = cursor; j < wordTimings.length; j++) {
+          const tw = wordTimings[j];
+          if (!(tw && Number.isFinite(tw.start))) continue;
+          if (tw.start >= line.start - 2 && tw.start <= line.end + 2) {
+            const twText = norm(tw.text);
+            if (twText && (twText === wText || twText.includes(wText) || wText.includes(twText))) {
+              updates.push([line, i, tw]);
+              matched++;
+              cursor = j + 1;
+              break;
+            }
+          }
+          if (tw.start > line.end + 2) break;
+        }
+      }
+    }
+    if (!total || matched / total < 0.5) {
+      console.log(`[LyricsChords] 🎯 词时间重映射匹配率不足(${matched}/${total}),保留估算值`);
+      return false;
+    }
+    for (const [line, i, tw] of updates) {
+      line.words[i] = {
+        ...line.words[i],
+        start: tw.start,
+        end: Number.isFinite(tw.end) && tw.end > tw.start ? tw.end : tw.start,
+      };
+    }
+    console.log(`[LyricsChords] 🎯 词时间重映射:${matched}/${total} 词采用真实时间`);
+    return true;
+  }
+
   async function combineLyricsAndChords() {
     console.log("[LyricsChords] שילוב מילים ואקורדים...");
 
@@ -7244,6 +7402,9 @@ if (window.ycLyricsChordsInit) {
         "subtitles",
         videoId
       );
+      // 🆕 归一化前的原始记录:resolver 会把 originalSentences 覆盖成清洗版重解析,
+      // 段落标记([Bridge] 等)与精确词时间只存在于原始字段里
+      const rawSubtitlesRecord = subtitlesData;
       subtitlesData = await normalizeActiveSubtitlesData(subtitlesData, aiMode);
 
       console.log("[LyricsChords] נתוני כתוביות נטענו:", {
@@ -7654,6 +7815,36 @@ if (window.ycLyricsChordsInit) {
         combined.length,
         "שורות"
       );
+
+      // 🎯 段落标记:打标 + 从原始字幕句恢复(小节视图分段用)
+      // resolver 会用清洗版覆盖 originalSentences → 额外并入归一化前的原始记录数组
+      const markerSources = [useOriginalSentences];
+      if (rawSubtitlesRecord) {
+        if (activeDefaultSource === "gemini") {
+          if (Array.isArray(rawSubtitlesRecord.geminiOriginalSentences)) {
+            markerSources.push(rawSubtitlesRecord.geminiOriginalSentences);
+          }
+        } else {
+          if (Array.isArray(rawSubtitlesRecord.rawOriginalSentences)) {
+            markerSources.push(rawSubtitlesRecord.rawOriginalSentences);
+          }
+          if (Array.isArray(rawSubtitlesRecord.originalSentences)) {
+            markerSources.push(rawSubtitlesRecord.originalSentences);
+          }
+        }
+      }
+      combined = tagSectionMarkers(combined, markerSources);
+
+      // 🎯 词时间重映射:句内均匀估算 → 逐词真实时间(json3 / Gemini words)
+      if (!useTranslation && rawSubtitlesRecord) {
+        const wordTimings =
+          activeDefaultSource === "gemini"
+            ? rawSubtitlesRecord.geminiWordTimings
+            : rawSubtitlesRecord.youtubeWordTimings;
+        if (Array.isArray(wordTimings) && wordTimings.length) {
+          remapWordsToTimings(combined, wordTimings);
+        }
+      }
 
       return combined;
     } catch (error) {
