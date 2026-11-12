@@ -1000,16 +1000,27 @@ function onContentRendered(combinedData, authoritativeChords, container) {
 }
 
 // 开关入口(面板 Measure toggle 调用):翻转偏好并触发面板重渲
+// 与 TAB 视图互斥:面板内容只能被一个视图接管,开启时联动关闭 TAB
 window.toggleMeasureView = async function () {
   const next = !window.measureViewEnabled;
   window.measureViewEnabled = next;
+
+  const syncUpdate = { [SYNC_KEY]: next };
+  if (next) {
+    window.tabViewEnabled = false;
+    syncUpdate.tabViewEnabled = false;
+  }
   try {
-    await chrome.storage.sync.set({ [SYNC_KEY]: next });
+    await chrome.storage.sync.set(syncUpdate);
   } catch (err) {
     console.warn('[MeasureChart] Failed to persist toggle:', err);
   }
   const toggleEl = document.querySelector('#measure-view-toggle');
   if (toggleEl) toggleEl.classList.toggle('active', next);
+  if (next) {
+    const tabToggleEl = document.querySelector('#tab-view-toggle');
+    if (tabToggleEl) tabToggleEl.classList.remove('active');
+  }
 
   if (!next) {
     state.enabled = false;

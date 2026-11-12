@@ -3652,6 +3652,10 @@ if (window.ycLyricsChordsInit) {
         <div class="scroll-toggle" id="measure-view-toggle" title="Measure view — chords grouped by bar, synced with lyrics">
           <div class="toggle-slider"></div>
         </div>
+        <span class="scroll-control-label">TAB</span>
+        <div class="scroll-toggle" id="tab-view-toggle" title="TAB view — guitar tablature with chord diagrams, strumming pattern and beat-aligned lyrics">
+          <div class="toggle-slider"></div>
+        </div>
         <button class="sentence-mode-icon" id="sentence-mode-toggle" title="Sentence Mode (break by punctuation)">¶</button>
         <button class="language-selector-btn" id="language-selector-btn" title="Select Language">
           <span class="language-code-text">EN</span>
@@ -4739,8 +4743,18 @@ if (window.ycLyricsChordsInit) {
     const combinedData = await combineLyricsAndChords();
 
     if (combinedData.length === 0) {
-      // 🎼 纯和弦模式:无歌词但有和弦数据 + Measure 开启 → 直接渲染小节视图(仅和弦行)
+      // 🎼 纯和弦模式:无歌词但有和弦数据 + TAB/Measure 开启 → 对应视图接管(仅和弦行)
       const chordsOnlyList = window.chordsDisplay?.currentSongData?.chords;
+      if (window.tabViewEnabled && window.ycTabChart && chordsOnlyList?.length) {
+        console.log('[LyricsChords] 🎸 Chords-only TAB view (no lyrics)');
+        targetContainer.innerHTML = '<div class="lyrics-chords-lines"></div>';
+        try {
+          window.ycTabChart.onContentRendered([], chordsOnlyList, targetContainer);
+        } catch (tabErr) {
+          console.warn('[LyricsChords] TAB view failed:', tabErr);
+        }
+        return;
+      }
       if (window.measureViewEnabled && window.ycMeasureChart && chordsOnlyList?.length) {
         console.log('[LyricsChords] 🎼 Chords-only Measure view (no lyrics)');
         targetContainer.innerHTML = '<div class="lyrics-chords-lines"></div>';
@@ -4752,7 +4766,7 @@ if (window.ycLyricsChordsInit) {
         return;
       }
       const hint = chordsOnlyList?.length
-        ? 'No lyrics for this video — turn ON the "Measure" toggle to view chords by bar'
+        ? 'No lyrics for this video — turn ON the "TAB" or "Measure" toggle to view chords'
         : 'No synchronized data available';
       targetContainer.innerHTML =
         `<div class="lyrics-chords-error">${hint}</div>`;
@@ -5264,9 +5278,20 @@ if (window.ycLyricsChordsInit) {
       targetContainer.innerHTML = html;
       htmlBuildSuccess = true;
 
-      // 🎼 Measure View hook (additive): hand data to the measure chart
-      // synchronously — combinedData is released a few lines below
-      if (window.measureViewEnabled && window.ycMeasureChart) {
+      // 🎼 Measure / TAB View hooks (additive): hand data to the active chart
+      // synchronously — combinedData is released a few lines below.
+      // TAB 与 Measure 互斥接管;两者同开时 TAB 优先
+      if (window.tabViewEnabled && window.ycTabChart) {
+        try {
+          window.ycTabChart.onContentRendered(
+            combinedData,
+            window.chordsDisplay?.currentSongData?.chords,
+            targetContainer
+          );
+        } catch (tabErr) {
+          console.warn("[LyricsChords] TAB view failed:", tabErr);
+        }
+      } else if (window.measureViewEnabled && window.ycMeasureChart) {
         try {
           window.ycMeasureChart.onContentRendered(
             combinedData,
@@ -8114,8 +8139,12 @@ if (window.ycLyricsChordsInit) {
     const subtitleCurrentTime = getAdjustedSubtitleTime(currentTime);
     highlightStats.totalCalls++;
 
-    // 🎼 Measure View: delegate highlighting to the measure chart and skip
-    // the legacy word/chord highlight (its DOM is not present in this view)
+    // 🎼 Measure / TAB View: delegate highlighting to the active chart and skip
+    // the legacy word/chord highlight (its DOM is not present in these views)
+    if (window.tabViewEnabled && window.ycTabChart?.isEnabled) {
+      window.ycTabChart.updateHighlight(currentTime);
+      return;
+    }
     if (window.measureViewEnabled && window.ycMeasureChart?.isEnabled) {
       window.ycMeasureChart.updateHighlight(currentTime);
       return;
@@ -12922,6 +12951,25 @@ if (window.ycLyricsChordsInit) {
         function () {
           if (typeof window.toggleMeasureView === "function") {
             window.toggleMeasureView();
+          }
+        },
+        { signal: lyricsChordsPanelController.signal }
+      );
+    }
+
+    // 🎸 Event listener ל-TAB View toggle (guitar tablature chart)
+    const tabViewToggle = lyricsChordsPanelElement.querySelector(
+      "#tab-view-toggle"
+    );
+    if (tabViewToggle) {
+      if (window.tabViewEnabled) {
+        tabViewToggle.classList.add("active");
+      }
+      tabViewToggle.addEventListener(
+        "click",
+        function () {
+          if (typeof window.toggleTabView === "function") {
+            window.toggleTabView();
           }
         },
         { signal: lyricsChordsPanelController.signal }

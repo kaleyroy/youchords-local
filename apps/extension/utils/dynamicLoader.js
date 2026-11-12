@@ -86,6 +86,7 @@ const MODULE_GROUPS = {
       'buttons/capoIcon.js',
       'buttons/lyricsAndChordsButton.js',
       'buttons/measureChartView.js',
+      'buttons/tabChartView.js',
       'buttons/fullscreenPanelHandler.js',
       'buttons/fullscreenPanelStyles.css'
     ],

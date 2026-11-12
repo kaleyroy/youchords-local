@@ -72,6 +72,9 @@ window.DEFAULT_SETTINGS = {
     // Measure View settings (chords grouped by bar in lyrics panel)
     measureViewEnabled: false,            // OFF by default
 
+    // TAB Chart View settings (guitar tablature view in lyrics panel)
+    tabViewEnabled: false,                // OFF by default
+
     // Countdown Timer settings
     countdownTimerEnabled: true,          // ON by default
     
