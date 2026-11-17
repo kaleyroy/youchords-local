@@ -24,3 +24,6 @@ apps/extension/config/local-config.js
 *.sqlite3
 .DS_Store
 Thumbs.db
+
+# Local prebuilt binaries for companion build (deno etc., 96MB)
+apps/local-companion/third_party/prebuilt/

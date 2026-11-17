@@ -187,7 +187,9 @@
           chords: chords,
           videoId: videoId,
           // Madmom beat/downbeat payload (measure view); null on old caches
-          beatsData: chordData?.beatsData || null
+          beatsData: chordData?.beatsData || null,
+          // Basic Pitch melody payload (jianpu view); null on old caches
+          melodyData: chordData?.melodyData || null
         };
 
         DEBUG && console.log("[ChordsDisplay] Loaded", chords.length, "chords");

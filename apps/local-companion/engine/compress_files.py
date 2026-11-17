@@ -147,6 +147,13 @@ def _pack_chord_timelines(all_data):
         packed["m"] = downbeats.get("meter")
         packed["b"] = downbeats.get("beats")
 
+    # Optional melody payload (Basic Pitch note events, jianpu view source)
+    # packed as "start_s.dur_ms.midi.conf" per note.
+    melody = all_data.get("melody")
+    if isinstance(melody, dict) and melody.get("notes"):
+        packed["mel"] = melody.get("notes")
+        packed["melv"] = melody.get("engine") or "basic-pitch-v1"
+
     return packed
 
 
@@ -159,6 +166,7 @@ def save_chords_json(
     regularplus_file=None,
     chord_engine_version=None,
     downbeats=None,
+    melody=None,
 ):
     """
     Save chord files as ONE JSON.GZ file with ALL chord data:
@@ -173,6 +181,7 @@ def save_chords_json(
         harmonicplus_file: Path to harmonic+ chords file or raw chord text
         tuning_file: Path to tuning file or raw tuning value
         downbeats: Optional {"bpm", "meter", "beats"} payload from madmom
+        melody: Optional {"notes", "engine"} payload from Basic Pitch
 
     Returns:
         str: output_file_path
@@ -216,6 +225,10 @@ def save_chords_json(
     # Optional madmom beat/downbeat payload (packed as tp/m/b by _pack_chord_timelines)
     if downbeats:
         all_data['downbeats'] = downbeats
+
+    # Optional melody payload (packed as mel/melv by _pack_chord_timelines)
+    if melody:
+        all_data['melody'] = melody
     read_seconds = time.perf_counter() - read_started_at
 
     all_chord_names = _extract_unique_chords_for_metrics(

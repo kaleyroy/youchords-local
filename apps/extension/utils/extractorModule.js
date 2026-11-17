@@ -90,6 +90,33 @@ function decodePackedBeats(encodedBeats, scale) {
   return beats;
 }
 
+// Decode packed melody notes "start_s.dur_ms.midi.conf,..." (Basic Pitch)
+// into [{ start, dur, midi, conf }] with start/dur in seconds/millis.
+function decodePackedMelody(encodedMelody) {
+  if (!encodedMelody || typeof encodedMelody !== "string") {
+    return [];
+  }
+
+  const notes = [];
+  String(encodedMelody).split(",").forEach((part) => {
+    const match = /^(\d+(?:\.\d+)?)\.(\d+)\.(\d+)\.(\d+)$/.exec(part);
+    if (!match) return;
+
+    const start = Number(match[1]);
+    const dur = Number(match[2]);
+    const midi = Number(match[3]);
+    if (!Number.isFinite(start) || !Number.isFinite(dur) || !Number.isInteger(midi)) {
+      return;
+    }
+    if (dur <= 0 || midi < 21 || midi > 108) {
+      return;
+    }
+    notes.push({ start, dur, midi, conf: Number(match[4]) / 100 });
+  });
+
+  return notes;
+}
+
 function normalizeChordPayload(chordsData) {
   if (!isPackedChordPayload(chordsData)) {
     return chordsData;
@@ -111,6 +138,9 @@ function normalizeChordPayload(chordsData) {
     beats,
     detectedBpm: Number.isFinite(Number(chordsData.tp)) ? Number(chordsData.tp) : null,
     detectedMeter: Number.isInteger(Number(chordsData.m)) ? Number(chordsData.m) : null,
+    // Optional Basic Pitch melody payload (jianpu view); missing on old caches
+    melody: decodePackedMelody(chordsData.mel),
+    melodyEngine: chordsData.melv || null,
   };
 }
 
@@ -1660,6 +1690,10 @@ async function fetchAndSaveChords(videoId, options = {}) {
       // Madmom beat/downbeat payload for the measure view ({bpm, meter, beats:[{time,pos}]})
       beatsData: Array.isArray(chordsData.beats) && chordsData.beats.length
         ? { bpm: chordsData.detectedBpm || null, meter: chordsData.detectedMeter || null, beats: chordsData.beats }
+        : null,
+      // Basic Pitch melody notes for the jianpu view ({engine, notes:[{start,dur,midi,conf}]})
+      melodyData: Array.isArray(chordsData.melody) && chordsData.melody.length
+        ? { engine: chordsData.melodyEngine || null, notes: chordsData.melody }
         : null,
       offset: 0,
       timestamp: Date.now(),

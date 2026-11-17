@@ -551,13 +551,16 @@ async function saveToDatabase(dbType, videoId, data, timingOffset = 0, _isRetry 
   let preservedSubtitleOffsets = null;
   let preservedChordEdits = null;
   let preservedBeatsData = null;
-  if (dbType === "chords" && (data?.userChordEdits === undefined || data?.beatsData === undefined)) {
+  let preservedMelodyData = null;
+  if (dbType === "chords" && (data?.userChordEdits === undefined || data?.beatsData === undefined || data?.melodyData === undefined)) {
     try {
       const existing = await loadFromDatabase("chords", videoId);
       preservedChordEdits = existing?.userChordEdits || null;
       // 部分保存(如仅更新 chordPositions/chordModes)不带 beatsData 时,
       // 保留已存的管线节拍数据,避免小节视图回退到推算网格
       preservedBeatsData = existing?.beatsData ?? null;
+      // 同理:不带 melodyData 的部分保存保留已存旋律,避免简谱视图回退推算模式
+      preservedMelodyData = existing?.melodyData ?? null;
     } catch (error) {
       console.warn("[DatabaseManager] Failed to preserve userChordEdits:", error);
     }
@@ -599,6 +602,11 @@ async function saveToDatabase(dbType, videoId, data, timingOffset = 0, _isRetry 
           data.beatsData !== undefined
             ? data.beatsData
             : preservedBeatsData,
+        // 🆕 Basic Pitch 旋律音符({engine, notes:[{start,dur,midi,conf}]}),简谱视图数据源
+        melodyData:
+          data.melodyData !== undefined
+            ? data.melodyData
+            : preservedMelodyData,
         userChordEdits:
           data.userChordEdits !== undefined
             ? data.userChordEdits

@@ -9,6 +9,7 @@ from pathlib import Path
 
 # Import our scripts
 from engine.process_chords import process_chord_items, process_sonic_annotator_csv, delete_temp_file
+from engine.process_melody import extract_melody
 
 # For chord extraction
 import vamp
@@ -35,6 +36,14 @@ REGULAR_ENGINE = os.environ.get("YOUCHORDS_REGULAR_ENGINE", "chordino").strip().
 # Downbeat detection (madmom RNNDownBeat + DBN). Opt-out only; adds ~20-60s
 # of analysis time for a typical song.
 DOWNBEATS_ENABLED = os.environ.get("YOUCHORDS_DOWNBEATS", "1").strip().lower() not in {
+    "0",
+    "false",
+    "no",
+    "off",
+}
+# Melody extraction (Basic Pitch) for the Jianpu view. Opt-out only; adds
+# CPU inference time for a typical song. Failures never fail the job.
+MELODY_ENABLED = os.environ.get("YOUCHORDS_MELODY", "1").strip().lower() not in {
     "0",
     "false",
     "no",
@@ -655,7 +664,7 @@ def process_wav_file(wav_file):
     Process a WAV file sequentially.
     Loads the WAV file once and reuses the data for Tuning and Harmonic+.
     
-    Order: Tuning → optional Madmom Regular → optional Madmom Downbeats → Chordino Regular+/Harmonic → Harmonic+ → Compress
+    Order: Tuning → optional Madmom Regular → optional Madmom Downbeats → Chordino Regular+/Harmonic → Harmonic+ → optional Melody → Compress
     """
     total_started_at = time.perf_counter()
     timings = {}
@@ -678,7 +687,7 @@ def process_wav_file(wav_file):
     print(f"WAV loaded: {len(data)} samples, {rate}Hz")
     
     # 1. TUNING detection using VAMP NNLS-Chroma tuning plugin
-    print("\n[1/6] Extracting TUNING...")
+    print("\n[1/7] Extracting TUNING...")
     tuning_started_at = time.perf_counter()
     tuning_value = "440.00"
     try:
@@ -695,7 +704,7 @@ def process_wav_file(wav_file):
     timings["tuningSeconds"] = _round_seconds(time.perf_counter() - tuning_started_at)
     
     # 2. Optional MADMOM REGULAR (primary R in staging)
-    print("\n[2/6] Extracting PRIMARY REGULAR...")
+    print("\n[2/7] Extracting PRIMARY REGULAR...")
     madmom_started_at = time.perf_counter()
     madmom_regular_text = None
     regular_engine_version = "chordino-v1"
@@ -708,7 +717,7 @@ def process_wav_file(wav_file):
     timings["madmomRegularSeconds"] = _round_seconds(time.perf_counter() - madmom_started_at)
 
     # 3. Optional MADMOM DOWNBEATS (measure-view timing source)
-    print("\n[3/6] Detecting DOWNBEATS...")
+    print("\n[3/7] Detecting DOWNBEATS...")
     downbeat_started_at = time.perf_counter()
     downbeat_payload = None
     if DOWNBEATS_ENABLED:
@@ -718,13 +727,13 @@ def process_wav_file(wav_file):
     timings["downbeatSeconds"] = _round_seconds(time.perf_counter() - downbeat_started_at)
 
     # 4. REGULAR+ + HARMONIC (sonic-annotator)
-    print("\n[4/6] Extracting REGULAR+ + HARMONIC...")
+    print("\n[4/7] Extracting REGULAR+ + HARMONIC...")
     regular_harmonic_started_at = time.perf_counter()
     harmonic_chord_file, regular_chord_file = extract_regular_harmonic(wav_file)
     timings["regularHarmonicSeconds"] = _round_seconds(time.perf_counter() - regular_harmonic_started_at)
     
     # 5. HARMONIC+ (using pre-loaded data)
-    print("\n[5/6] Extracting HARMONIC+...")
+    print("\n[5/7] Extracting HARMONIC+...")
     harmonicplus_started_at = time.perf_counter()
     harmonicplus_chord_text = None
     try:
@@ -771,8 +780,18 @@ def process_wav_file(wav_file):
         print(f"HARMONIC+ error: {e}")
     timings["harmonicPlusSeconds"] = _round_seconds(time.perf_counter() - harmonicplus_started_at)
     
-    # 6. Save as JSON.GZ
-    print("\n[6/6] Saving to JSON.GZ...")
+    # 6. Optional MELODY (Basic Pitch, jianpu-view melody source)
+    print("\n[6/7] Extracting MELODY...")
+    melody_started_at = time.perf_counter()
+    melody_payload = None
+    if MELODY_ENABLED:
+        melody_payload = extract_melody(wav_file)
+    else:
+        print("Melody extraction disabled (YOUCHORDS_MELODY=0)")
+    timings["melodySeconds"] = _round_seconds(time.perf_counter() - melody_started_at)
+
+    # 7. Save as JSON.GZ
+    print("\n[7/7] Saving to JSON.GZ...")
 
     primary_regular_text = madmom_regular_text or harmonic_chord_file
     regularplus_chord_text = harmonic_chord_file
@@ -792,6 +811,7 @@ def process_wav_file(wav_file):
                 regularplus_file=regularplus_chord_text,
                 chord_engine_version=regular_engine_version,
                 downbeats=downbeat_payload,
+                melody=melody_payload,
             )
             timings["saveJsonWrapperSeconds"] = _round_seconds(time.perf_counter() - save_started_at)
             try:

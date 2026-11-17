@@ -75,6 +75,9 @@ window.DEFAULT_SETTINGS = {
     // TAB Chart View settings (guitar tablature view in lyrics panel)
     tabViewEnabled: false,                // OFF by default
 
+    // Jianpu Chart View settings (numbered notation view in lyrics panel)
+    jianpuViewEnabled: false,             // OFF by default
+
     // Countdown Timer settings
     countdownTimerEnabled: true,          // ON by default
     

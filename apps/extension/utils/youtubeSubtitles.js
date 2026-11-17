@@ -1296,17 +1296,20 @@ function convertGeminiToInternalFormat(geminiSubtitles) {
         wordTimings.push({ text: item.word, start: item.start, end: item.end });
       }
     } else {
-      const duration = sub.end - sub.start;
-      const wordDuration = duration / textWords.length;
+      // 句内估算:按词长(字母/数字数,下限 1)加权分配时长 — 长词占时更长,比均匀铺开更接近演唱节奏
+      const duration = Math.max(0, sub.end - sub.start);
+      const weights = textWords.map(w => Math.max(1, (w.replace(/[^\p{L}\p{N}'’-]/gu, '').length) || 1));
+      const totalWeight = weights.reduce((s, x) => s + x, 0) || 1;
 
+      let acc = sub.start;
       textWords.forEach((word, wordIndex) => {
-        const wordStart = sub.start + (wordIndex * wordDuration);
-        const wordEnd = sub.start + ((wordIndex + 1) * wordDuration);
+        const wordStart = acc;
+        acc += (duration * weights[wordIndex]) / totalWeight;
 
         words.push({
           word: word,
           start: Math.round(wordStart * 100) / 100,  // ✅ Round to 2 decimals
-          end: Math.round(wordEnd * 100) / 100       // ✅ Round to 2 decimals
+          end: Math.round(acc * 100) / 100           // ✅ Round to 2 decimals
         });
       });
     }

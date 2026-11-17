@@ -3656,6 +3656,10 @@ if (window.ycLyricsChordsInit) {
         <div class="scroll-toggle" id="tab-view-toggle" title="TAB view — guitar tablature with chord diagrams, strumming pattern and beat-aligned lyrics">
           <div class="toggle-slider"></div>
         </div>
+        <span class="scroll-control-label">Jianpu</span>
+        <div class="scroll-toggle" id="jianpu-view-toggle" title="Jianpu view — numbered notation (1=do) aligned with lyrics; melody mode when pipeline data exists, chord-degree estimate otherwise">
+          <div class="toggle-slider"></div>
+        </div>
         <button class="sentence-mode-icon" id="sentence-mode-toggle" title="Sentence Mode (break by punctuation)">¶</button>
         <button class="language-selector-btn" id="language-selector-btn" title="Select Language">
           <span class="language-code-text">EN</span>
@@ -4743,15 +4747,25 @@ if (window.ycLyricsChordsInit) {
     const combinedData = await combineLyricsAndChords();
 
     if (combinedData.length === 0) {
-      // 🎼 纯和弦模式:无歌词但有和弦数据 + TAB/Measure 开启 → 对应视图接管(仅和弦行)
+      // 🎼 纯和弦模式:无歌词但有和弦数据 + Jianpu/TAB/Measure 开启 → 对应视图接管(仅和弦行)
       const chordsOnlyList = window.chordsDisplay?.currentSongData?.chords;
+      if (window.jianpuViewEnabled && window.ycJianpu && chordsOnlyList?.length) {
+        console.log('[LyricsChords] 🎼 Chords-only Jianpu view (no lyrics)');
+        targetContainer.innerHTML = '<div class="lyrics-chords-lines"></div>';
+        try {
+          window.ycJianpu.onContentRendered([], chordsOnlyList, targetContainer);
+        } catch (jianpuErr) {
+          console.warn("[LyricsChords] Jianpu view failed:", jianpuErr);
+        }
+        return;
+      }
       if (window.tabViewEnabled && window.ycTabChart && chordsOnlyList?.length) {
         console.log('[LyricsChords] 🎸 Chords-only TAB view (no lyrics)');
         targetContainer.innerHTML = '<div class="lyrics-chords-lines"></div>';
         try {
           window.ycTabChart.onContentRendered([], chordsOnlyList, targetContainer);
         } catch (tabErr) {
-          console.warn('[LyricsChords] TAB view failed:', tabErr);
+          console.warn("[LyricsChords] TAB view failed:", tabErr);
         }
         return;
       }
@@ -4761,12 +4775,12 @@ if (window.ycLyricsChordsInit) {
         try {
           window.ycMeasureChart.onContentRendered([], chordsOnlyList, targetContainer);
         } catch (measureErr) {
-          console.warn('[LyricsChords] Measure view failed:', measureErr);
+          console.warn("[LyricsChords] Measure view failed:", measureErr);
         }
         return;
       }
       const hint = chordsOnlyList?.length
-        ? 'No lyrics for this video — turn ON the "TAB" or "Measure" toggle to view chords'
+        ? 'No lyrics for this video — turn ON the "Jianpu", "TAB" or "Measure" toggle to view chords'
         : 'No synchronized data available';
       targetContainer.innerHTML =
         `<div class="lyrics-chords-error">${hint}</div>`;
@@ -5278,10 +5292,20 @@ if (window.ycLyricsChordsInit) {
       targetContainer.innerHTML = html;
       htmlBuildSuccess = true;
 
-      // 🎼 Measure / TAB View hooks (additive): hand data to the active chart
+      // 🎼 Jianpu / Measure / TAB View hooks (additive): hand data to the active chart
       // synchronously — combinedData is released a few lines below.
-      // TAB 与 Measure 互斥接管;两者同开时 TAB 优先
-      if (window.tabViewEnabled && window.ycTabChart) {
+      // 三视图互斥接管;同开时 Jianpu > TAB > Measure
+      if (window.jianpuViewEnabled && window.ycJianpu) {
+        try {
+          window.ycJianpu.onContentRendered(
+            combinedData,
+            window.chordsDisplay?.currentSongData?.chords,
+            targetContainer
+          );
+        } catch (jianpuErr) {
+          console.warn("[LyricsChords] Jianpu view failed:", jianpuErr);
+        }
+      } else if (window.tabViewEnabled && window.ycTabChart) {
         try {
           window.ycTabChart.onContentRendered(
             combinedData,
@@ -7337,20 +7361,24 @@ if (window.ycLyricsChordsInit) {
 
   // 🆕 词时间重映射:用逐词真实时间(json3 tOffsetMs / Gemini words)替换句内均匀估算。
   // 匹配规则与 parseSRT 准确词匹配一致:顺序游标 + 去标点小写包含匹配 + 行时间窗容差;
-  // 匹配率 <50% 视为脏数据整体放弃。
+  // 判定两级:全局匹配率 ≥30%(脏数据保险丝)且行内匹配率 ≥50% 才采用该行真实时间,
+  // 其余行保留估算值(逐行部分采用,不再整体放弃)。
   function remapWordsToTimings(lines, wordTimings) {
-    if (!Array.isArray(lines) || !Array.isArray(wordTimings) || wordTimings.length < 10) return false;
+    const stats = { appliedLines: 0, totalLines: 0, matchedWords: 0, totalWords: 0 };
+    if (!Array.isArray(lines) || !Array.isArray(wordTimings) || wordTimings.length < 10) return stats;
     const norm = (t) => String(t || "").replace(/[.,!?;:'"()[\]]/g, "").toLowerCase();
+    const lineResults = [];   // { line, updates, matched } 逐行延迟生效(全局达标才应用)
     let cursor = 0;
-    let matched = 0;
-    let total = 0;
-    const updates = [];   // [line, wordIndex, timing] 延迟应用(匹配率达标才生效)
     for (const line of lines) {
       if (!line || !Array.isArray(line.words) || !line.words.length) continue;
       if (line.isSectionMarker) continue;
+      stats.totalLines++;
+      const startCursor = cursor;
+      const updates = [];
+      let matched = 0;
       for (let i = 0; i < line.words.length; i++) {
         const word = line.words[i];
-        total++;
+        stats.totalWords++;
         const wText = norm(word.word);
         if (!wText) continue;
         for (let j = cursor; j < wordTimings.length; j++) {
@@ -7359,8 +7387,9 @@ if (window.ycLyricsChordsInit) {
           if (tw.start >= line.start - 2 && tw.start <= line.end + 2) {
             const twText = norm(tw.text);
             if (twText && (twText === wText || twText.includes(wText) || wText.includes(twText))) {
-              updates.push([line, i, tw]);
+              updates.push([i, tw]);
               matched++;
+              stats.matchedWords++;
               cursor = j + 1;
               break;
             }
@@ -7368,20 +7397,32 @@ if (window.ycLyricsChordsInit) {
           if (tw.start > line.end + 2) break;
         }
       }
+      if (line.words.length && matched / line.words.length < 0.5) {
+        cursor = startCursor;   // 该行放弃 → 游标回滚,不污染后续行匹配
+      }
+      lineResults.push({ line, updates, matched });
     }
-    if (!total || matched / total < 0.5) {
-      console.log(`[LyricsChords] 🎯 词时间重映射匹配率不足(${matched}/${total}),保留估算值`);
-      return false;
+    const globalRatio = stats.totalWords ? stats.matchedWords / stats.totalWords : 0;
+    if (!stats.totalWords || globalRatio < 0.3) {
+      console.log(`[LyricsChords] 🎯 词时间重映射匹配率不足(${stats.matchedWords}/${stats.totalWords}),保留估算值`);
+      return stats;           // appliedLines 保持 0
     }
-    for (const [line, i, tw] of updates) {
-      line.words[i] = {
-        ...line.words[i],
-        start: tw.start,
-        end: Number.isFinite(tw.end) && tw.end > tw.start ? tw.end : tw.start,
-      };
+    for (const { line, updates, matched } of lineResults) {
+      if (!line.words.length || matched / line.words.length < 0.5) continue;
+      for (const [i, tw] of updates) {
+        line.words[i] = {
+          ...line.words[i],
+          start: tw.start,
+          end: Number.isFinite(tw.end) && tw.end > tw.start ? tw.end : tw.start,
+        };
+      }
+      stats.appliedLines++;
     }
-    console.log(`[LyricsChords] 🎯 词时间重映射:${matched}/${total} 词采用真实时间`);
-    return true;
+    console.log(
+      `[LyricsChords] 🎯 词时间重映射:${stats.matchedWords}/${stats.totalWords} 词,` +
+      `${stats.appliedLines}/${stats.totalLines} 行采用真实时间`
+    );
+    return stats;
   }
 
   async function combineLyricsAndChords() {
@@ -7861,13 +7902,35 @@ if (window.ycLyricsChordsInit) {
       combined = tagSectionMarkers(combined, markerSources);
 
       // 🎯 词时间重映射:句内均匀估算 → 逐词真实时间(json3 / Gemini words)
+      // + 词时来源诊断(TAB 视图工具条 legend 展示)
+      let wordTimingMeta = null;
       if (!useTranslation && rawSubtitlesRecord) {
-        const wordTimings =
-          activeDefaultSource === "gemini"
-            ? rawSubtitlesRecord.geminiWordTimings
-            : rawSubtitlesRecord.youtubeWordTimings;
+        const isGemini = activeDefaultSource === "gemini";
+        const wordTimings = isGemini
+          ? rawSubtitlesRecord.geminiWordTimings
+          : rawSubtitlesRecord.youtubeWordTimings;
         if (Array.isArray(wordTimings) && wordTimings.length) {
-          remapWordsToTimings(combined, wordTimings);
+          // 注意:geminiWordTimings 只在 Gemini 返回了真实逐词时间时非空;
+          // 空数组 = 词时间为句内估算(gemini-estimated)
+          const stats = remapWordsToTimings(combined, wordTimings);
+          wordTimingMeta = {
+            source: isGemini ? "gemini-real" : "youtube",
+            matchedRatio: stats.totalWords > 0 ? stats.matchedWords / stats.totalWords : null,
+          };
+        } else if (isGemini) {
+          wordTimingMeta = { source: "gemini-estimated", matchedRatio: null };
+        } else {
+          wordTimingMeta = { source: "none", matchedRatio: null };
+        }
+      }
+      if (wordTimingMeta) {
+        try {
+          if (window.chordsDisplay?.currentSongData) {
+            window.chordsDisplay.currentSongData.wordTimingMeta = wordTimingMeta;
+          }
+          window.ycWordTimingMeta = wordTimingMeta;
+        } catch (e) {
+          console.warn("[LyricsChords] Failed to publish wordTimingMeta:", e);
         }
       }
 
@@ -8139,8 +8202,12 @@ if (window.ycLyricsChordsInit) {
     const subtitleCurrentTime = getAdjustedSubtitleTime(currentTime);
     highlightStats.totalCalls++;
 
-    // 🎼 Measure / TAB View: delegate highlighting to the active chart and skip
+    // 🎼 Jianpu / Measure / TAB View: delegate highlighting to the active chart and skip
     // the legacy word/chord highlight (its DOM is not present in these views)
+    if (window.jianpuViewEnabled && window.ycJianpu?.isEnabled) {
+      window.ycJianpu.updateHighlight(currentTime);
+      return;
+    }
     if (window.tabViewEnabled && window.ycTabChart?.isEnabled) {
       window.ycTabChart.updateHighlight(currentTime);
       return;
@@ -12970,6 +13037,25 @@ if (window.ycLyricsChordsInit) {
         function () {
           if (typeof window.toggleTabView === "function") {
             window.toggleTabView();
+          }
+        },
+        { signal: lyricsChordsPanelController.signal }
+      );
+    }
+
+    // 🎼 Event listener ל-Jianpu View toggle (numbered notation chart)
+    const jianpuViewToggle = lyricsChordsPanelElement.querySelector(
+      "#jianpu-view-toggle"
+    );
+    if (jianpuViewToggle) {
+      if (window.jianpuViewEnabled) {
+        jianpuViewToggle.classList.add("active");
+      }
+      jianpuViewToggle.addEventListener(
+        "click",
+        function () {
+          if (typeof window.toggleJianpuView === "function") {
+            window.toggleJianpuView();
           }
         },
         { signal: lyricsChordsPanelController.signal }

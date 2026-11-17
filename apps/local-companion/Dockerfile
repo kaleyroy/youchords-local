@@ -1,6 +1,8 @@
 FROM python:3.10-slim AS nnls-builder
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# 国内网络:apt 换 USTC 镜像(pip 已走 doubanio,口径一致)
+RUN sed -i 's|http://deb.debian.org|https://mirrors.ustc.edu.cn|g' /etc/apt/sources.list.d/debian.sources 2>/dev/null || true \
+    && apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libboost-dev \
     vamp-plugin-sdk \
@@ -17,9 +19,11 @@ RUN make \
 FROM python:3.10-slim AS python-builder
 WORKDIR /build
 COPY requirements.txt .
-ARG MADMOM_URL=https://files.pythonhosted.org/packages/c7/a3/9f3de3e8068a3606331134d96b84c8db4f7624d6715be8ab3c1f56e6731d/madmom-0.16.1.tar.gz
+# 国内网络:madmom 走 doubanio 镜像(与 pip 同源,sha256 不变)
+ARG MADMOM_URL=https://pypi.doubanio.com/packages/c7/a3/9f3de3e8068a3606331134d96b84c8db4f7624d6715be8ab3c1f56e6731d/madmom-0.16.1.tar.gz
 ARG MADMOM_SHA256=64a86a29106e7c4e0c5f4ec96801c2d1a8492db710e4fe27e097da5517d68cb2
-RUN apt-get update && apt-get install -y --no-install-recommends build-essential \
+RUN sed -i 's|http://deb.debian.org|https://mirrors.ustc.edu.cn|g' /etc/apt/sources.list.d/debian.sources 2>/dev/null || true \
+    && apt-get update && apt-get install -y --no-install-recommends build-essential \
     curl \
     && python -m venv /opt/venv \
     && /opt/venv/bin/pip install --no-cache-dir --upgrade pip "setuptools<81" wheel==0.46.2 jaraco.context==6.1.0 -i https://pypi.doubanio.com/simple \
@@ -36,9 +40,11 @@ FROM python:3.10-slim
 ARG SONIC_ANNOTATOR_URL=https://github.com/sonic-visualiser/sonic-annotator/releases/download/sonic-annotator-1.7/sonic-annotator-1.7.0-linux64-static.tar.gz
 ARG SONIC_ANNOTATOR_SHA256=ec7838368aa6b20a039d04ebd5d91f4efd26e9c79f713b70843e35880151b919
 # Deno: yt-dlp's EJS challenge solver needs a modern JS runtime (Debian's node 20 is unsupported)
-ARG DENO_URL=https://github.com/denoland/deno/releases/latest/download/deno-x86_64-unknown-linux-gnu.zip
+# 钉死版本(可复现构建);国内网络下 GitHub release 不可达时回退 third_party/prebuilt/deno
+ARG DENO_URL=https://github.com/denoland/deno/releases/download/v2.9.8/deno-x86_64-unknown-linux-gnu.zip
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN sed -i 's|http://deb.debian.org|https://mirrors.ustc.edu.cn|g' /etc/apt/sources.list.d/debian.sources 2>/dev/null || true \
+    && apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
     ffmpeg \
@@ -51,6 +57,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=python-builder /opt/venv /opt/venv
 WORKDIR /app
 
+# 本地预置二进制(deno 等,gitignored);存在则优先使用,否则 RUN 内回退 curl 下载
+COPY third_party/prebuilt/ /tmp/prebuilt/
+
 RUN curl --fail --location --retry 4 --retry-delay 2 "$SONIC_ANNOTATOR_URL" -o /tmp/sonic.tar.gz \
     && echo "$SONIC_ANNOTATOR_SHA256  /tmp/sonic.tar.gz" | sha256sum --check - \
     && mkdir -p /app/engine/sonic-annotator \
@@ -60,10 +69,12 @@ RUN curl --fail --location --retry 4 --retry-delay 2 "$SONIC_ANNOTATOR_URL" -o /
     && cd /app/engine/sonic-annotator \
     && ./sonic-annotator --appimage-extract >/dev/null \
     && chmod +x /app/engine/sonic-annotator/squashfs-root/AppRun \
-    && curl --fail --location --retry 4 --retry-delay 2 "$DENO_URL" -o /tmp/deno.zip \
-    && python3 -m zipfile -e /tmp/deno.zip /usr/local/bin/ \
-    && rm /tmp/deno.zip \
-    && chmod +x /usr/local/bin/deno \
+    && if [ -s /tmp/prebuilt/deno ]; then install -m 0755 /tmp/prebuilt/deno /usr/local/bin/deno; \
+       else curl --fail --location --retry 4 --retry-delay 2 "$DENO_URL" -o /tmp/deno.zip \
+         && python3 -m zipfile -e /tmp/deno.zip /usr/local/bin/ \
+         && rm /tmp/deno.zip \
+         && chmod +x /usr/local/bin/deno; \
+       fi \
     && deno --version
 
 COPY --from=nnls-builder /src/nnls-chroma.so /app/engine/vamp_plugins/nnls-chroma.so
